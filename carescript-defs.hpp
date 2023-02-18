@@ -199,20 +199,27 @@ struct InterpreterState {
 
 // helper class for handling errors
 struct InterpreterError  {
+private:
+    bool has_value = false;
+    ScriptVariable value;
+public:
     Interpreter& interpreter;
     InterpreterError(Interpreter& i): interpreter(i) {}
+    InterpreterError(Interpreter& i, ScriptVariable val): interpreter(i), value(val) { has_value = true; }
     InterpreterError& on_error(void(*fun)(Interpreter&));
     InterpreterError& otherwise(void(*fun)(Interpreter&));
     InterpreterError& throw_error();
+    ScriptVariable get_value() { return value; }
+    ScriptVariable get_value_or(ScriptVariable var) { return has_value ? value : var; }
 };
 
 // wrapper and storage class for a simpler API usage
 class Interpreter {
     std::map<int,InterpreterState> states;
-    void(*on_error_f)(std::string message, ScriptSettings settings) = 0;
+    void(*on_error_f)(Interpreter&) = 0;
 
     void error_check() {
-        if(settings.error_msg != "" && on_error_f) on_error_f(settings.error_msg,settings);
+        if(settings.error_msg != "" && on_error_f) on_error_f(*this);
     }
 public:
     std::map<std::string,ScriptBuiltin> script_builtins = default_script_builtins;
@@ -251,33 +258,53 @@ public:
     }
 
     InterpreterError run() {
+        settings.return_value = script_null;
         settings.error_msg = run_label("main",settings.labels,settings,"",{});
         error_check();
-        return *this;
+        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
     }
 
     template<typename... _Targs>
     InterpreterError run(std::string label, _Targs ...targs) {
         std::vector<ScriptVariable> args = {targs...};
+        settings.return_value = script_null;
         settings.error_msg = run_label(label,settings.labels,settings,"",args);
         error_check();
-        return *this;
+        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
     }
 
     InterpreterError eval(std::string source) {
+        settings.return_value = script_null;
         settings.error_msg = run_script(source,settings);
         error_check();
-        return *this;
+        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
     }
 
     int to_local_line(int line) { return line - settings.labels[settings.label.top()].line; }
     int to_global_line(int line) { return line + settings.labels[settings.label.top()].line; }
 
-    void on_error(void(*fun)(std::string,ScriptSettings)) {
+    void on_error(void(*fun)(Interpreter&)) {
         on_error_f = fun;
     }
 
     std::string error() const { return settings.error_msg; }
+
+    Interpreter& add_builtin(std::string name, const ScriptBuiltin& builtin) {
+        script_builtins[name] = builtin;
+        return *this;
+    }
+    Interpreter& add_operator(std::string name, const ScriptOperator& _operator) {
+        script_operators[name].push_back(_operator);
+        return *this;
+    }
+    Interpreter& add_typecheck(const ScriptTypeCheck& typecheck) {
+        script_typechecks.push_back(typecheck);
+        return *this;
+    }
+    Interpreter& add_macro(std::string macro, std::string replacement) {
+        script_macros[macro] = replacement;
+        return *this;
+    }
 };
 
 inline InterpreterError& InterpreterError::on_error(void(*fun)(Interpreter&)) {

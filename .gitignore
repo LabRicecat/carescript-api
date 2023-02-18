@@ -1,0 +1,11 @@
+*.out
+carescript
+*.so
+main.cpp
+test.ccs 
+build/
+glob/
+so/
+catmods/
+*.sh
+.vscode/
