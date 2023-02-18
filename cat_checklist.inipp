@@ -1,0 +1,10 @@
+[Main]
+
+[Info]
+name = "carescriptAPI"
+version = "0.0.0"
+
+[Download]
+dependencies = ["catcaretaker/kittenlexer"]
+files = ["carescript.hpp","carescript-defs.hpp","carescript-defaults.hpp","carescript-macromagic.hpp","carescript-parsing.hpp","carescript-types.hpp"]
+scripts = ["script.ccs"]

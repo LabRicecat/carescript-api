@@ -1,0 +1,1 @@
+echoln("Warning: Remember to use \"-rdynamic -fPIC -std=c++20\" when compiling this project alongside extensions!")
