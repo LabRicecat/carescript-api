@@ -82,8 +82,8 @@ int main() {
     //  v-- argument count, set it to negative to disable this check
         2,[](const ScriptArglist& args, ScriptSettings& settings)->ScriptVariable {
             cc_builtin_if_ignore(); // skips this function in case of an failed "if"
-            cc_builtin_var_requires(args[0],ScriptStringValue); // argument 1 must be a ntring
-            cc_builtin_var_not_requires(args[1],ScriptStringValue); // argument 2 must be a number
+            cc_builtin_var_requires(args[0],ScriptStringValue); // argument 1 must be a string
+            cc_builtin_var_requires(args[1],ScriptNumberValue); // argument 2 must be a number
             
             // gets the number value
             int count = get_value<ScriptNumberValue>(args[1]);
