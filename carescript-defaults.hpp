@@ -58,7 +58,7 @@ inline std::map<std::string,ScriptBuiltin> default_script_builtins = {
     }}},
     {"input",{1,[](const ScriptArglist& args, ScriptSettings& settings)->ScriptVariable {
         cc_builtin_if_ignore();
-        cc_builtin_var_requires(args[1],ScriptStringValue);
+        cc_builtin_var_requires(args[0],ScriptStringValue);
         std::cout << get_value<ScriptStringValue>(args[0]); std::cout.flush();
         std::string inp;
         std::getline(std::cin,inp);

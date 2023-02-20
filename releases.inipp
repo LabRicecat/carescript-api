@@ -1,0 +1,9 @@
+[Main]
+
+[0.0.1]
+path_notes = "- fixed bugs in the default implementation
+- added `from` overloads for integral types and std::string
+- added a few templates
+"
+date = "2023/2/20 9:58:6"
+

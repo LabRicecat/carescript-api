@@ -1,8 +1,6 @@
 #ifndef CARESCRIPT_DEFS_HPP
 #define CARESCRIPT_DEFS_HPP
 
-#include "catmods/kittenlexer/kittenlexer.hpp"
-
 #include <cmath>
 #include <fstream>
 #include <string>
@@ -18,18 +16,12 @@
 #include "carescript-types.hpp"
 #include "carescript-macromagic.hpp"
 
-#ifdef _WIN32
-#define CARESCRIPTSDK__DIRSLASH "\\"
-#elif defined(__linux__) || defined(__unix__)
-#define CARESCRIPTSDK_DIRSLASH "/"
-#endif
-
 namespace carescript {
 
 template<typename _Tp>
 concept ScriptValueType = std::is_base_of<carescript::ScriptValue,_Tp>::value;
 
-// Wrapper class to perfom task on a
+// Wrapper class to perfom tasks on a
 // subclass of the abstract class "ScriptValue"
 struct ScriptVariable {
     std::unique_ptr<ScriptValue> value = nullptr;
@@ -46,6 +38,11 @@ struct ScriptVariable {
 
     template<typename _Tp>
     ScriptVariable(_Tp a) {
+        // note here: we use `from` but it's class internally only
+        // defined for ScriptValue pointers.
+        // the user can define other `from` functions inside the
+        // `carescript` namespace to effectivly overload the
+        // constructor of this class
         from(*this,a);
     }
 
@@ -386,6 +383,17 @@ public:
 };
 
 using get_extension_fun = Extension*(*)();
+
+// external overloads for the ScriptVariable constructor
+template<typename _Tp>
+concept IntegralType = std::is_integral<_Tp>::value;
+template<IntegralType _Tp>
+void from(carescript::ScriptVariable& var, _Tp i) {
+    var = new carescript::ScriptNumberValue(i);
+}
+void from(carescript::ScriptVariable& var, std::string i) {
+    var = new carescript::ScriptStringValue(i);
+}
 
 } /* namespace carescript */
 
