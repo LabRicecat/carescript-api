@@ -266,6 +266,9 @@ public:
     template<typename... _Targs>
     InterpreterError run(std::string label, _Targs ...targs) {
         std::vector<ScriptVariable> args = {targs...};
+        return run(label,args);
+    }
+    InterpreterError run(std::string label, std::vector<ScriptVariable> args) {
         settings.return_value = script_null;
         settings.line = 1;
         settings.exit = false;
