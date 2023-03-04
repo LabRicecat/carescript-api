@@ -67,7 +67,7 @@ struct ScriptVariable {
         return get_value<_Tp>(*this);
     }
 
-    friend void from(ScriptVariable& var, ScriptValue* a) {
+    inline friend void from(ScriptVariable& var, ScriptValue* a) {
         var.value.reset(a);
     }
 };
@@ -416,10 +416,10 @@ using get_extension_fun = Extension*(*)();
 template<typename _Tp>
 concept IntegralType = std::is_integral<_Tp>::value;
 template<IntegralType _Tp>
-void from(carescript::ScriptVariable& var, _Tp integral) {
+inline void from(carescript::ScriptVariable& var, _Tp integral) {
     var = new carescript::ScriptNumberValue(integral);
 }
-void from(carescript::ScriptVariable& var, std::string string) {
+inline void from(carescript::ScriptVariable& var, std::string string) {
     var = new carescript::ScriptStringValue(string);
 }
 

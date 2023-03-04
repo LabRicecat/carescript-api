@@ -111,7 +111,7 @@ public:
 namespace carescript {
     // syntax sugar to enable
     // ScriptVariable name = std::vector<ScriptVariable>(...);
-    void from(ScriptVariable& var, ListType::val_t list) {
+    inline void from(ScriptVariable& var, ListType::val_t list) {
         var = new ListType(list);
     }
 }
