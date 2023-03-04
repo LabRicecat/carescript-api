@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <filesystem>
 #include <exception>
+#include <functional>
 #include <any>
 
 #include "catmods/kittenlexer/kittenlexer.hpp"
@@ -202,8 +203,8 @@ public:
     Interpreter& interpreter;
     InterpreterError(Interpreter& i): interpreter(i) {}
     InterpreterError(Interpreter& i, ScriptVariable val): interpreter(i), value(val) { has_value = true; }
-    InterpreterError& on_error(void(*fun)(Interpreter&));
-    InterpreterError& otherwise(void(*fun)(Interpreter&));
+    InterpreterError& on_error(std::function<void(Interpreter&)>);
+    InterpreterError& otherwise(std::function<void(Interpreter&)>);
     InterpreterError& throw_error();
     ScriptVariable get_value() { return value; }
     ScriptVariable get_value_or(ScriptVariable var) { return has_value ? value : var; }
@@ -212,7 +213,7 @@ public:
 // wrapper and storage class for a simpler API usage
 class Interpreter {
     std::map<int,InterpreterState> states;
-    void(*on_error_f)(Interpreter&) = 0;
+    std::function<void(Interpreter&)> on_error_f;
 
     void error_check() {
         if(settings.error_msg != "" && on_error_f) on_error_f(*this);
@@ -284,7 +285,7 @@ public:
     int to_local_line(int line) { return line - settings.labels[settings.label.top()].line; }
     int to_global_line(int line) { return line + settings.labels[settings.label.top()].line; }
 
-    void on_error(void(*fun)(Interpreter&)) {
+    void on_error(std::function<void(Interpreter&)> fun) {
         on_error_f = fun;
     }
 
@@ -327,12 +328,12 @@ public:
     }
 };
 
-inline InterpreterError& InterpreterError::on_error(void(*fun)(Interpreter&)) {
+inline InterpreterError& InterpreterError::on_error(std::function<void(Interpreter&)> fun) {
     if(!interpreter) fun(interpreter);
     return *this;
 }
 
-inline InterpreterError& InterpreterError::otherwise(void(*fun)(Interpreter&)) {
+inline InterpreterError& InterpreterError::otherwise(std::function<void(Interpreter&)> fun) {
     if(interpreter) fun(interpreter);
     return *this;
 }
