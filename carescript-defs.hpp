@@ -46,8 +46,9 @@ struct ScriptVariable {
         from(*this,a);
     }
 
-    void operator=(const ScriptVariable& var) {
+    ScriptVariable& operator=(const ScriptVariable& var) {
         if(var.value.get() != nullptr) value.reset(var.value->copy());
+        return *this;
     }
 
     std::string get_type() const {
@@ -93,7 +94,7 @@ inline bool is_same_type(const ScriptVariable& v1,const ScriptVariable& v2) {
 
 // checks if a variable is null
 inline bool is_null(const ScriptVariable& v) {
-    return is_typeof<ScriptNullValue>(v);
+    return v.value.get() == nullptr || is_typeof<ScriptNullValue>(v);
 }
 
 // returns the unwrapped type of a variable
@@ -135,10 +136,8 @@ using ScriptTypeCheck = ScriptValue*(*)(KittenToken src, ScriptSettings& setting
 // storage class for an operator
 struct ScriptOperator {
     int priority = 0;
-    enum {UNARY, DOUBLE, BOTH} type;
+    enum {UNARY, BINARY, UNKNOWN} type;
     ScriptVariable(*run)(ScriptVariable left, ScriptVariable right, ScriptSettings& settings);
-
-    ScriptVariable(*run_unary)(ScriptVariable right, ScriptSettings& settings);
 };
 
 using ScriptArglist = std::vector<ScriptVariable>;
@@ -256,25 +255,30 @@ public:
 
     InterpreterError run() {
         settings.return_value = script_null;
+        settings.line = 1;
         settings.error_msg = run_label("main",settings.labels,settings,"",{});
+        settings.exit = false;
         error_check();
-        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
+        return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
     }
 
     template<typename... _Targs>
     InterpreterError run(std::string label, _Targs ...targs) {
         std::vector<ScriptVariable> args = {targs...};
         settings.return_value = script_null;
+        settings.line = 1;
+        settings.exit = false;
         settings.error_msg = run_label(label,settings.labels,settings,"",args);
         error_check();
-        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
+        return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
     }
 
     InterpreterError eval(std::string source) {
         settings.return_value = script_null;
         settings.error_msg = run_script(source,settings);
+        settings.exit = false;
         error_check();
-        return settings.return_value == script_null ? *this : InterpreterError(*this,settings.return_value);
+        return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
     }
 
     int to_local_line(int line) { return line - settings.labels[settings.label.top()].line; }
@@ -301,6 +305,25 @@ public:
     Interpreter& add_macro(std::string macro, std::string replacement) {
         script_macros[macro] = replacement;
         return *this;
+    }
+
+    bool has_builtin(std::string name) {
+        return script_builtins.find(name) != script_builtins.end();
+    }
+    ScriptBuiltin& get_builtin(std::string name) {
+        return script_builtins[name];
+    }
+    bool has_macro(std::string name) {
+        return script_macros.find(name) != script_macros.end();
+    }
+    std::string& get_macro(std::string name) {
+        return script_macros[name];
+    }
+    bool has_operator(std::string name) {
+        return script_operators.find(name) != script_operators.end();
+    }
+    std::vector<ScriptOperator>& get_operator(std::string name) {
+        return script_operators[name];
     }
 };
 
@@ -385,14 +408,15 @@ public:
 using get_extension_fun = Extension*(*)();
 
 // external overloads for the ScriptVariable constructor
+
 template<typename _Tp>
 concept IntegralType = std::is_integral<_Tp>::value;
 template<IntegralType _Tp>
-void from(carescript::ScriptVariable& var, _Tp i) {
-    var = new carescript::ScriptNumberValue(i);
+void from(carescript::ScriptVariable& var, _Tp integral) {
+    var = new carescript::ScriptNumberValue(integral);
 }
-void from(carescript::ScriptVariable& var, std::string i) {
-    var = new carescript::ScriptStringValue(i);
+void from(carescript::ScriptVariable& var, std::string string) {
+    var = new carescript::ScriptStringValue(string);
 }
 
 } /* namespace carescript */

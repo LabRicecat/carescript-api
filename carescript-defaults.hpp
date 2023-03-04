@@ -440,7 +440,7 @@ inline std::vector<ScriptTypeCheck> default_script_typechecks = {
 };
 
 inline std::map<std::string,std::vector<ScriptOperator>> default_script_operators = {
-    {"+",{{0,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"+",{{0,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"+");
         cc_operator_var_requires(right,"+",ScriptNumberValue,ScriptStringValue);
         if(is_typeof<ScriptNumberValue>(right)) {
@@ -454,7 +454,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
                 );
         }
     }}}},
-    {"-",{{0,ScriptOperator::BOTH,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"-",{{0,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"-");
         cc_operator_var_requires(right,"-",ScriptNumberValue);
         ScriptVariable ret;
@@ -462,7 +462,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
                 get_value<ScriptNumberValue>(left) - get_value<ScriptNumberValue>(right)
             );
         return ret;
-    },[](ScriptVariable left, ScriptSettings& settings)->ScriptVariable {
+    }},{-3,ScriptOperator::UNARY,[](ScriptVariable left, ScriptVariable, ScriptSettings& settings)->ScriptVariable {
         cc_operator_var_requires(left,"-",ScriptNumberValue);
         ScriptVariable ret;
         ret = new ScriptNumberValue(
@@ -470,7 +470,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
             );
         return ret;
     }}}},
-    {"*",{{1,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"*",{{-1,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"*");
         cc_operator_var_requires(right,"*",ScriptNumberValue);
         ScriptVariable ret;
@@ -480,7 +480,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
 
         return ret;
     }}}},
-    {"/",{{1,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"/",{{-1,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"/");
         cc_operator_var_requires(right,"/",ScriptNumberValue);
         if(get_value<ScriptNumberValue>(right) == 0) {
@@ -493,7 +493,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
             );
         return ret;
     }}}},
-    {"^",{{1,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"^",{{-2,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"^");
         cc_operator_var_requires(right,"^",ScriptNumberValue);
         ScriptVariable ret;
@@ -503,21 +503,21 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
         return ret;
     }}}},
     
-    {"is",{{-1,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"is",{{2,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"is");
 
         return new ScriptNumberValue(
                 left == right ? true : false
             );
     }}}},
-    {"isnt",{{-1,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"isnt",{{2,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"isnt");
 
         return new ScriptNumberValue(
                 left == right ? false : true
             );
     }}}},
-    {"and",{{-2,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"and",{{3,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"and");
         cc_operator_var_requires(right,"and",ScriptNumberValue);
         
@@ -525,7 +525,7 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
                 (get_value<ScriptNumberValue>(left) == true && get_value<ScriptNumberValue>(right)) ? true : false
             );
     }}}},
-    {"or",{{-2,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"or",{{4,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"or");
         cc_operator_var_requires(right,"or",ScriptNumberValue);
                 
@@ -533,14 +533,14 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
                 (get_value<ScriptNumberValue>(left) == true || get_value<ScriptNumberValue>(right) == true) ? true : false
             );
     }}}},
-    {"more",{{-2,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"more",{{5,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"more");
         cc_operator_var_requires(right,"more",ScriptNumberValue);
         return new ScriptNumberValue(
                 (get_value<ScriptNumberValue>(left) > get_value<ScriptNumberValue>(right)) ? true : false
             );
     }}}},
-    {"less",{{-2,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+    {"less",{{5,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_same_type(right,left,"less");
         cc_operator_var_requires(right,"less",ScriptNumberValue);
         return new ScriptNumberValue(
@@ -548,13 +548,13 @@ inline std::map<std::string,std::vector<ScriptOperator>> default_script_operator
             );
     }}}},
     
-    {"not",{{99,ScriptOperator::UNARY,nullptr,[](ScriptVariable left, ScriptSettings& settings)->ScriptVariable {
+    {"not",{{-4,ScriptOperator::UNARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_var_requires(left,"not",ScriptNumberValue);
         return new ScriptNumberValue(
                 !get_value<ScriptNumberValue>(left)
             );
     }}}},
-    {"$",{{999,ScriptOperator::UNARY,nullptr,[](ScriptVariable left, ScriptSettings& settings)->ScriptVariable {
+    {"$",{{-5,ScriptOperator::UNARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
         cc_operator_var_requires(left,"$",ScriptNameValue);
         ScriptVariable ret;
         std::string v = get_value<ScriptNameValue>(left);

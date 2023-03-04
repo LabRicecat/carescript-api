@@ -17,7 +17,7 @@ public:
         return false;
     };
     std::string to_printable() const {
-        return "ref(...)";
+        return "ref(" + ref->printable() + ")";
     }
     std::string to_string() const {
         return to_printable();

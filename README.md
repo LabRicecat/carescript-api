@@ -12,7 +12,7 @@ $ catcare download catcaretaker/catcare-api
 Now you can include the file `catmods/catcare-api/carescript-api.hpp` and can start!  
 
 ## Usage
-## language layout
+### language layout
 
 Carescript is very simple, it's always:
 ```
@@ -176,7 +176,7 @@ public:
     OperatorList get_operators() { 
         return {
             // adds a "+" operator to join lists together
-            {{"+",{{0,ScriptOperator::DOUBLE,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+            {{"+",{{0,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
                 cc_operator_same_type(right,left,"+");
                 cc_operator_var_requires(right,"+",ListType);
                 auto lvec = get_value<ListType>(left);
