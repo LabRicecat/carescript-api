@@ -61,7 +61,7 @@ public:
                     count = (size_t)get_value<ScriptNumberValue>(args[1]);
                 }
                 ListType list = get_value<ListType>(args[0]);
-                _cc_error_if(list.list.size() > count,"popped not existing element (size below 0)");
+                _cc_error_if(list.list.size() <= count,"popped not existing element (size below 0)");
                 for(size_t i = 0; i < count; ++i) list.list.pop_back();
                 return new ListType(list);
             }}}

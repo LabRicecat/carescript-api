@@ -189,9 +189,58 @@ struct InterpreterState {
 
     InterpreterState() {}
     InterpreterState(const Interpreter& interp) { save(interp); }
+    InterpreterState(
+        const std::map<std::string,ScriptBuiltin>& a,
+        const std::map<std::string,std::vector<ScriptOperator>>& b,
+        const std::vector<ScriptTypeCheck>& c,
+        const std::unordered_map<std::string,std::string>& d):
+        script_builtins(a),
+        script_operators(b),
+        script_typechecks(c),
+        script_macros(d) {}
 
     void load(Interpreter& interp) const;
     void save(const Interpreter& interp);
+
+    InterpreterState& operator=(const std::map<std::string,ScriptBuiltin>& a) {
+        script_builtins = a;
+        return *this;
+    }
+    InterpreterState& operator=(const std::map<std::string,std::vector<ScriptOperator>>& a) {
+        script_operators = a;
+        return *this;
+    }
+    InterpreterState& operator=(const std::vector<ScriptTypeCheck>& a) {
+        script_typechecks = a;
+        return *this;
+    }
+    InterpreterState& operator=(const std::unordered_map<std::string,std::string>& a) {
+        script_macros = a;
+        return *this;
+    }
+
+    InterpreterState& add(const std::map<std::string,ScriptBuiltin>& a) {
+        script_builtins.insert(a.begin(),a.end());
+        return *this;
+    }
+    InterpreterState& add(const std::map<std::string,std::vector<ScriptOperator>>& a) {
+        for(auto& i : script_operators) {
+            for(auto j : a.at(i.first)) {
+                i.second.push_back(j);
+            }
+        }
+        return *this;
+    }
+    InterpreterState& add(const std::vector<ScriptTypeCheck>& a) {
+        for(auto i : a) {
+            script_typechecks.push_back(i);
+        }
+        return *this;
+    }
+    InterpreterState& add(const std::unordered_map<std::string,std::string>& a) {
+        script_macros.insert(a.begin(),a.end());
+        return *this;
+    }
 };
 
 // helper class for handling errors
@@ -208,6 +257,7 @@ public:
     InterpreterError& throw_error();
     ScriptVariable get_value() { return value; }
     ScriptVariable get_value_or(ScriptVariable var) { return has_value ? value : var; }
+    Interpreter& chain() { return interpreter; }
 };
 
 // wrapper and storage class for a simpler API usage
@@ -222,9 +272,9 @@ public:
     std::map<std::string,ScriptBuiltin> script_builtins = default_script_builtins;
     std::map<std::string,std::vector<ScriptOperator>> script_operators = default_script_operators;
     std::vector<ScriptTypeCheck> script_typechecks = default_script_typechecks;
-    std::unordered_map<std::string,std::string> script_macros;
+    std::unordered_map<std::string,std::string> script_macros = default_script_macros;
     ScriptSettings settings = ScriptSettings(*this);
-
+    
     void save(int id) {
         states[id].save(*this);
     }
@@ -310,6 +360,16 @@ public:
         script_macros[macro] = replacement;
         return *this;
     }
+    InterpreterError bake(std::string file) {
+        if(!bake_extension(file,settings)) 
+            settings.error_msg = "error while baking: " + file;
+        return *this;
+    }
+    InterpreterError bake(Extension* ext) {
+        if(!bake_extension(ext,settings)) 
+            settings.error_msg = "error while baking: <compiled>";
+        return *this;
+    }
 
     bool has_builtin(std::string name) {
         return script_builtins.find(name) != script_builtins.end();
@@ -393,6 +453,7 @@ inline ScriptVariable not_null_check(ScriptVariable var, ScriptSettings& setting
 }
 
 #define CARESCRIPT_EXTENSION using namespace carescript;
+#define CARESCRIPT_EXTENSION_GETEXT_INLINE(...) extern "C" { inline Extension* get_extension() { __VA_ARGS__ } }
 #define CARESCRIPT_EXTENSION_GETEXT(...) extern "C" { Extension* get_extension() { __VA_ARGS__ } }
 
 using BuiltinList = std::unordered_map<std::string,ScriptBuiltin>;

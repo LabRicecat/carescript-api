@@ -18,12 +18,14 @@
 #ifdef _WIN32
 # include <windows.h>
 namespace carescript {
-inline static Extension* get_ext(std::string name) { return nullptr; }
+inline static Extension* get_ext(std::filesystem::path name) { return nullptr; }
 #elif defined(__linux__)
 # include <dlfcn.h>
 namespace carescript {
-inline static Extension* get_ext(std::string name) { 
-    name = "./" + name + ".so";
+inline static Extension* get_ext(std::filesystem::path name) {
+    if(!name.has_extension()) name += ".so";
+    if(name.is_relative())
+        name = "./" + name.string();
     void* handler = dlopen(name.c_str(),RTLD_NOW);
     if(handler == nullptr) return nullptr;
     get_extension_fun f = (get_extension_fun)dlsym(handler,"get_extension");
@@ -82,7 +84,7 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
     for(auto i : lines) 
         if(i.size() != 2 || i[0].str || i[1].str || i[1].src.front() != '(') { 
             settings.label.pop();
-            return "line " + std::to_string(i.front().line-1 + label.line) + " is invalid (in label " + label_name + ")"; 
+            return "line " + std::to_string(i.front().line) + " is invalid (in label " + label_name + ")"; 
         }
 
     settings.parent_path = parent_path;
@@ -321,7 +323,10 @@ struct _ExpressionFuncall {
                 return script_null;
             }
         }
-        return fun.exec(args,settings);
+        settings.error_msg = "";
+        ScriptVariable ret =  fun.exec(args,settings);
+        if(settings.error_msg != "") errors.push(settings.error_msg);
+        return ret;
     }
 };
 struct _OperatorToken { 
@@ -460,6 +465,13 @@ inline bool valid_expression(std::vector<_OperatorToken> markedupTokens, ScriptS
 inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedupTokens, ScriptSettings& settings, _ExpressionErrors& errors, int i = 0) {
     const static int max_prec = 999999999;
     if(errors.changed()) return script_null;
+    if(markedupTokens.size() == 1) {
+        if(markedupTokens[0].type == markedupTokens[0].OP) {
+            errors.push("standalone operator detected!");
+            return script_null;
+        }
+        return markedupTokens[0].get_val(settings,errors);
+    }
     if(i >= markedupTokens.size()) {
         int i = 0;
         return expression_check_prec(markedupTokens,i,max_prec,settings,errors);
@@ -497,6 +509,8 @@ inline ScriptVariable evaluate_expression(std::string source, ScriptSettings& se
     KittenLexer expression_lexer = KittenLexer()
         .add_stringq('"')
         .add_capsule('(',')')
+        .add_capsule('[',']')
+        .add_capsule('{','}')
         .add_con_extract(is_operator_char)
         .add_ignore(' ')
         .add_ignore('\t')

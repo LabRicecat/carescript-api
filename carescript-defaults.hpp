@@ -394,7 +394,7 @@ inline std::map<std::string,ScriptBuiltin> default_script_builtins = {
     {"bake",{1,[](const ScriptArglist& args, ScriptSettings& settings)->ScriptVariable {
         cc_builtin_if_ignore();
         cc_builtin_var_requires(args[0],ScriptStringValue);
-        return bake_extension(args[0].printable(),settings) ? script_true : script_false;
+        return bake_extension(get_value<ScriptStringValue>(args[0]),settings) ? script_true : script_false;
     }}},
     {"typeof",{1,[](const ScriptArglist& args, ScriptSettings& settings)->ScriptVariable {
         cc_builtin_if_ignore();

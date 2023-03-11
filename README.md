@@ -50,6 +50,9 @@ int main() {
     // save the current state as id 0
     interpreter.save(0);
 
+    // loads an external extension, relative as well as absolute paths are valid.
+    interpreter.bake("path/to/extension");
+
     interpreter.on_error([](carescript::Interpreter& interp) {
         std::cout << interp.error() << "\n";
         // This code executes when an error occurs
@@ -57,6 +60,7 @@ int main() {
 
     // pre processes the code
     interpreter.pre_process("source-code");
+    
     // runs the "main" label
     interpreter.run();
 
@@ -67,6 +71,7 @@ int main() {
     carescript::ScriptVariable value = interpreter.run("label_with_return").get_value();
 
     interpreter.load(0); // loads the saved state with id 0
+    // note: this will also remove the loaded extension from before!
 }
 ```
 ### manually adding functionallity
@@ -165,7 +170,7 @@ public:
                     count = (size_t)get_value<ScriptNumberValue>(args[1]);
                 }
                 ListType list = get_value<ListType>(args[0]);
-                _cc_error_if(list.list.size() > count,"popped not existing element (size below 0)");
+                _cc_error_if(list.list.size() <= count,"popped not existing element (size below 0)");
                 for(size_t i = 0; i < count; ++i) list.list.pop_back();
                 return new ListType(list);
             }}}
@@ -216,7 +221,7 @@ public:
     }
     // No macros needed
     MacroList get_macros() { return {}; }
-// defines a instance for the baking process
+// defines an instance for the baking process
 }static inline inst;
 
 // at the end, define what the extension's instance is
