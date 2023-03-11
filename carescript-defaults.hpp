@@ -101,7 +101,6 @@ inline std::map<std::string,ScriptBuiltin> default_script_builtins = {
             _cc_error("requires at least two arguments");
         }
         cc_builtin_var_requires(args[0],ScriptStringValue);
-        cc_builtin_var_requires(args[1],ScriptStringValue);
         std::string f;
         std::ifstream ifile;
         ifile.open(get_value<ScriptStringValue>(args[0]),std::ios::in);
@@ -112,21 +111,20 @@ inline std::map<std::string,ScriptBuiltin> default_script_builtins = {
         std::string label = get_value<ScriptStringValue>(args[1]);
         auto args2 = args;
         args2.erase(args.begin(),args.begin()+1);
+        args2.erase(args.begin(),args.begin()+1);
 
-        auto labels = pre_process(f,settings);
-        if(settings.error_msg != "") _cc_error(settings.error_msg);
-        if(labels.count(label) == 0) {
-            _cc_error("no such label");
-        }
-        auto lb = labels[label];
-        if(lb.arglist.size() > args2.size()) {
-            _cc_error("too few arguments");
-        }
-        else if(lb.arglist.size() < args2.size()) {
-            _cc_error("too many arguments");
-        }
-        run_label(label,labels,settings,"",{});
-        _cc_error(run_script(f,settings));
+        Interpreter interp;
+        interp.script_builtins = settings.interpreter.script_builtins;
+        interp.script_operators = settings.interpreter.script_operators;
+        interp.script_typechecks = settings.interpreter.script_typechecks;
+        interp.script_macros = settings.interpreter.script_macros;
+        interp.pre_process(f).on_error([&](Interpreter& i) {
+            settings.error_msg = i.error();
+        });
+        if(settings.error_msg != "") return script_null;
+        return interp.run(label,args2).on_error([&](Interpreter& i) {
+            settings.error_msg = i.error();
+        }).get_value_or(script_null);
     }}},
     {"exit",{1,[](const ScriptArglist& args, ScriptSettings& settings)->ScriptVariable {
         cc_builtin_if_ignore();
