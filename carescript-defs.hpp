@@ -453,8 +453,8 @@ inline ScriptVariable not_null_check(ScriptVariable var, ScriptSettings& setting
 }
 
 #define CARESCRIPT_EXTENSION using namespace carescript;
-#define CARESCRIPT_EXTENSION_GETEXT_INLINE(...) extern "C" { inline Extension* get_extension() { __VA_ARGS__ } }
-#define CARESCRIPT_EXTENSION_GETEXT(...) extern "C" { Extension* get_extension() { __VA_ARGS__ } }
+#define CARESCRIPT_EXTENSION_GETEXT_INLINE(...) extern "C" { inline carescript::Extension* get_extension() { __VA_ARGS__ } }
+#define CARESCRIPT_EXTENSION_GETEXT(...) extern "C" { carescript::Extension* get_extension() { __VA_ARGS__ } }
 
 using BuiltinList = std::unordered_map<std::string,ScriptBuiltin>;
 using OperatorList = std::unordered_map<std::string,std::vector<ScriptOperator>>;
