@@ -96,7 +96,6 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
     if(settings.line == 0) settings.line = 1;
     for(size_t i = settings.line-1; i < lines.size(); ++i) {
         if(settings.exit) return "";
-        i = settings.line-1;
         std::string name = lines[i][0].src;
         auto arglist = parse_argumentlist(lines[i][1].src,settings);
         if(settings.error_msg != "") {
@@ -119,6 +118,7 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
             if(settings.raw_error) return settings.error_msg;
             return "line " + std::to_string(settings.line + label.line) + ": " + name + ": " + settings.error_msg + " (in label " + label_name + ")";
         }
+        i = settings.line-1;
         ++settings.line;
     }
     settings.label.pop();
@@ -371,7 +371,7 @@ inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& toke
     for(size_t i = 0; i < tokens.size(); ++i) {
         auto token = tokens[i];
         std::string r = token.src;
-        if(is_operator(token.src,settings)) {
+        if(!token.str && is_operator(token.src,settings)) {
             ret.push_back(_ExpressionToken{r,ScriptOperator()});
         }
         else if(!token.str && token.src[0] == '(') {
