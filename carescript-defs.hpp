@@ -12,7 +12,7 @@
 #include <functional>
 #include <any>
 
-#include "catmods/kittenlexer/kittenlexer.hpp"
+#include "catpkgs/kittenlexer/kittenlexer.hpp"
 
 #include "carescript-types.hpp"
 #include "carescript-macromagic.hpp"

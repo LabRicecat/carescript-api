@@ -9,7 +9,7 @@ To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabR
 $ catcare download catcaretaker/catcare-api
 ```
 
-Now you can include the file `catmods/catcare-api/carescript-api.hpp` and can start!  
+Now you can include the file `catpkgs/catcare-api/carescript-api.hpp` and can start!  
 
 ## Usage
 ### language layout
@@ -41,7 +41,7 @@ Variables are stored locally to each label and can not be shared.
 
 ### using the interpreter
 ```c++
-#include "catmods/catcare-api/carescript-api.hpp"
+#include "catpkgs/catcare-api/carescript-api.hpp"
 
 int main() {
     // creates a new interpreter instance
