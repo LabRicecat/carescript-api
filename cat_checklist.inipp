@@ -5,7 +5,7 @@ name = "carescriptAPI"
 version = "0.1.1"
 
 [Download]
-dependencies = []
+dependencies = ["https://raw.githubusercontent.com/catcaretaker/kittenlexer/main/"]
 files = ["carescript.hpp","carescript-defs.hpp","carescript-defaults.hpp","carescript-macromagic.hpp","carescript-parsing.hpp","carescript-types.hpp"]
 scripts = ["script.ccs"]
 
