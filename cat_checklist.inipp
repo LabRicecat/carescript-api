@@ -6,6 +6,7 @@ version = "0.1.2"
 
 [Download]
 dependencies = ["https://raw.githubusercontent.com/catcaretaker/kittenlexer/main/"]
-files = ["carescript.hpp","carescript-defs.hpp","carescript-defaults.hpp","carescript-macromagic.hpp","carescript-parsing.hpp","carescript-types.hpp"]
+files = ["carescript-defs.hpp","carescript-defs.hpp","carescript-defaults.hpp","carescript-macromagic.hpp","carescript-parsing.hpp","carescript-types.hpp"]
 scripts = []
+
 
