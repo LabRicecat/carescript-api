@@ -6,6 +6,6 @@ test.ccs
 build/
 glob/
 so/
-catmods/
+catpkgs/
 *.sh
 .vscode/
