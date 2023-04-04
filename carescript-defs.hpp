@@ -72,7 +72,6 @@ struct ScriptVariable {
     }
 };
 
-
 // checks if a variable has a specific type
 template<ScriptValueType _Tval>
 inline bool is_typeof(const carescript::ScriptVariable& var) {
@@ -104,9 +103,9 @@ inline auto get_value(const carescript::ScriptVariable& v) {
     return ((const _Tp*)v.value.get())->get_value();
 }
 
-const ScriptVariable script_null = new ScriptNullValue();
-const ScriptVariable script_true = new ScriptNumberValue(true);
-const ScriptVariable script_false = new ScriptNumberValue(false);
+inline const ScriptVariable script_null = new ScriptNullValue();
+inline const ScriptVariable script_true = new ScriptNumberValue(true);
+inline const ScriptVariable script_false = new ScriptNumberValue(false);
 
 struct Interpreter;
 struct ScriptLabel;
@@ -132,20 +131,25 @@ struct ScriptSettings {
     ScriptSettings(Interpreter& i): interpreter(i) {}
 };
 
-using ScriptTypeCheck = ScriptValue*(*)(KittenToken src, ScriptSettings& settings);
-
 // storage class for an operator
 struct ScriptOperator {
     int priority = 0;
+    // UNKNOWN -> internally used, nono, don't touch it!
     enum {UNARY, BINARY, UNKNOWN} type;
     ScriptVariable(*run)(ScriptVariable left, ScriptVariable right, ScriptSettings& settings);
 };
 
 using ScriptArglist = std::vector<ScriptVariable>;
+// simple C-like replacement macro, not recursive
 using ScriptMacro = std::pair<std::string,std::string>;
+// instead of evaluated arguments, this get's the raw input
+using ScriptRawBuiltin = ScriptVariable(*)(const std::string& source, ScriptSettings& settings);
+// tries to evaluate a string into a variable, nullptr if fauled
+using ScriptTypeCheck = ScriptValue*(*)(KittenToken src, ScriptSettings& settings);
 
 // storage class for a builtin function
 struct ScriptBuiltin {
+    // <0 disables this check
     int arg_count = -1;
     ScriptVariable(*exec)(const ScriptArglist&,ScriptSettings&);
 };
@@ -186,6 +190,7 @@ struct InterpreterState {
     std::map<std::string,std::vector<ScriptOperator>> script_operators;
     std::vector<ScriptTypeCheck> script_typechecks;
     std::unordered_map<std::string,std::string> script_macros;
+    std::unordered_map<std::string,ScriptRawBuiltin> script_rawbuiltins;
 
     InterpreterState() {}
     InterpreterState(const Interpreter& interp) { save(interp); }
@@ -193,11 +198,13 @@ struct InterpreterState {
         const std::map<std::string,ScriptBuiltin>& a,
         const std::map<std::string,std::vector<ScriptOperator>>& b,
         const std::vector<ScriptTypeCheck>& c,
-        const std::unordered_map<std::string,std::string>& d):
+        const std::unordered_map<std::string,std::string>& d,
+        const std::unordered_map<std::string,ScriptRawBuiltin>& e):
         script_builtins(a),
         script_operators(b),
         script_typechecks(c),
-        script_macros(d) {}
+        script_macros(d),
+        script_rawbuiltins(e) {}
 
     void load(Interpreter& interp) const;
     void save(const Interpreter& interp);
@@ -216,6 +223,10 @@ struct InterpreterState {
     }
     InterpreterState& operator=(const std::unordered_map<std::string,std::string>& a) {
         script_macros = a;
+        return *this;
+    }
+    InterpreterState& operator=(const std::unordered_map<std::string,ScriptRawBuiltin>& a) {
+        script_rawbuiltins = a;
         return *this;
     }
 
@@ -239,6 +250,10 @@ struct InterpreterState {
     }
     InterpreterState& add(const std::unordered_map<std::string,std::string>& a) {
         script_macros.insert(a.begin(),a.end());
+        return *this;
+    }
+    InterpreterState& add(const std::unordered_map<std::string,ScriptRawBuiltin>& a) {
+        script_rawbuiltins.insert(a.begin(),a.end());
         return *this;
     }
 };
@@ -273,6 +288,7 @@ public:
     std::map<std::string,std::vector<ScriptOperator>> script_operators = default_script_operators;
     std::vector<ScriptTypeCheck> script_typechecks = default_script_typechecks;
     std::unordered_map<std::string,std::string> script_macros = default_script_macros;
+    std::unordered_map<std::string,ScriptRawBuiltin> script_rawbuiltins;
     ScriptSettings settings = ScriptSettings(*this);
     
     void save(int id) {
@@ -288,6 +304,7 @@ public:
         script_operators.clear();
         script_typechecks.clear();
         script_macros.clear();
+        script_rawbuiltins.clear();
     }
 
     operator bool() {
@@ -344,11 +361,11 @@ public:
 
     std::string error() const { return settings.error_msg; }
 
-    Interpreter& add_builtin(std::string name, const ScriptBuiltin& builtin) {
+    Interpreter& add_builtin(const std::string& name, const ScriptBuiltin& builtin) {
         script_builtins[name] = builtin;
         return *this;
     }
-    Interpreter& add_operator(std::string name, const ScriptOperator& _operator) {
+    Interpreter& add_operator(const std::string& name, const ScriptOperator& _operator) {
         script_operators[name].push_back(_operator);
         return *this;
     }
@@ -356,8 +373,12 @@ public:
         script_typechecks.push_back(typecheck);
         return *this;
     }
-    Interpreter& add_macro(std::string macro, std::string replacement) {
+    Interpreter& add_macro(const std::string& macro, const std::string& replacement) {
         script_macros[macro] = replacement;
+        return *this;
+    }
+    Interpreter& add_rawbuiltin(std::string name, const ScriptRawBuiltin& rawbuiltin) {
+        script_rawbuiltins[name] = rawbuiltin;
         return *this;
     }
     InterpreterError bake(std::string file) {
@@ -389,6 +410,13 @@ public:
     std::vector<ScriptOperator>& get_operator(std::string name) {
         return script_operators[name];
     }
+    bool has_rawbuiltin(std::string name) {
+        return script_rawbuiltins.find(name) != script_rawbuiltins.end();
+    }
+    ScriptRawBuiltin& get_rawbuiltin(std::string name) {
+        return script_rawbuiltins[name];
+    }
+    
 };
 
 inline InterpreterError& InterpreterError::on_error(std::function<void(Interpreter&)> fun) {
@@ -412,12 +440,14 @@ inline void InterpreterState::load(Interpreter& interp) const {
     interp.script_operators = this->script_operators;
     interp.script_typechecks = this->script_typechecks;
     interp.script_macros = this->script_macros;
+    interp.script_rawbuiltins = this->script_rawbuiltins;
 }
 inline void InterpreterState::save(const Interpreter& interp) {
     script_builtins = interp.script_builtins;
     script_operators = interp.script_operators;
     script_typechecks = interp.script_typechecks;
     script_macros = interp.script_macros;
+    script_rawbuiltins = interp.script_rawbuiltins;
 }
 
 // converts a literal into a variable

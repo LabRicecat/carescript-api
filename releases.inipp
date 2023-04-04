@@ -5,14 +5,14 @@ path_notes = "- fixed bugs in the default implementation
 - added `from` overloads for integral types and std::string
 - added a few templates
 "
-date = "2023/2/20 9:58:6"
+date = "2023/2"
 
 [0.1.0]
 path_notes = "- complete rework for expressions
 - improved functionality of the \"Interpreter\" class
 - improved templates/examples
 "
-date = "2023/3/4 14:23:14"
+date = "2023/3"
 
 [0.1.1]
 path_notes = "- fixed several bugs related to extensions
@@ -20,5 +20,11 @@ path_notes = "- fixed several bugs related to extensions
 - fixed missing default macros
 - fixed bug in ListExtension.cpp example
 "
-date = "2023/3/11 9:12:38"
+date = "2023/3"
+
+[0.1.2]
+path_notes = "- added raw builtins (act like rust-like macros)
+- minor cleanup
+"
+date = "2023/4"
 

@@ -118,6 +118,7 @@ inline std::map<std::string,ScriptBuiltin> default_script_builtins = {
         interp.script_operators = settings.interpreter.script_operators;
         interp.script_typechecks = settings.interpreter.script_typechecks;
         interp.script_macros = settings.interpreter.script_macros;
+        interp.script_rawbuiltins = settings.interpreter.script_rawbuiltins;
         interp.pre_process(f).on_error([&](Interpreter& i) {
             settings.error_msg = i.error();
         });

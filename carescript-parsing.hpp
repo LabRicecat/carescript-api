@@ -97,6 +97,23 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
     for(size_t i = settings.line-1; i < lines.size(); ++i) {
         if(settings.exit) return "";
         std::string name = lines[i][0].src;
+        if(settings.interpreter.has_rawbuiltin(name)) {
+            ScriptRawBuiltin rawbuiltin = settings.interpreter.get_rawbuiltin(name);
+            std::string r = lines[i][1].src;
+            r.erase(r.begin());
+            r.pop_back();
+
+            rawbuiltin(r,settings);
+
+            if(settings.error_msg != "") {
+                settings.label.pop();
+                if(settings.raw_error) return settings.error_msg;
+                return "line " + std::to_string(settings.line + label.line) + ": " + settings.error_msg + " (in label " + label_name + ")";
+            }
+            i = settings.line-1;
+            ++settings.line;
+            continue;
+        }
         auto arglist = parse_argumentlist(lines[i][1].src,settings);
         if(settings.error_msg != "") {
             settings.label.pop();
@@ -304,29 +321,42 @@ struct _ExpressionFuncall {
     std::string arguments; 
 
     ScriptVariable call(ScriptSettings& settings, _ExpressionErrors& errors) {
-        ScriptArglist args = parse_argumentlist(arguments,settings);
-        ScriptBuiltin fun = settings.interpreter.get_builtin(function);
-        if(settings.error_msg != "") {
-            errors.push("error parsing argumentlist: " + settings.error_msg);
+        if(settings.interpreter.has_builtin(function)) {
+            ScriptArglist args = parse_argumentlist(arguments,settings);
+            ScriptBuiltin fun = settings.interpreter.get_builtin(function);
+            if(settings.error_msg != "") {
+                errors.push("error parsing argumentlist: " + settings.error_msg);
+                settings.error_msg = "";
+                return script_null;
+            }
+            if(fun.arg_count >= 0) {
+                if(args.size() < fun.arg_count) {
+                    errors.push("function call with too little arguments: " + function + arguments + 
+                        "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
+                    return script_null;
+                }
+                if(args.size() > fun.arg_count) {
+                    errors.push("function call with too many arguments: " + function + arguments +
+                        "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
+                    return script_null;
+                }
+            }
             settings.error_msg = "";
-            return script_null;
+            ScriptVariable ret =  fun.exec(args,settings);
+            if(settings.error_msg != "") errors.push(settings.error_msg);
+            return ret;
         }
-        if(fun.arg_count >= 0) {
-            if(args.size() < fun.arg_count) {
-                errors.push("function call with too little arguments: " + function + arguments + 
-                    "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
+        else {
+            ScriptRawBuiltin rawbuiltin = settings.interpreter.get_rawbuiltin(function);
+            std::string argcpy = arguments.substr(1,arguments.size()-2);
+            auto ret = rawbuiltin(argcpy,settings);
+            if(settings.error_msg != "") {
+                errors.push("error evaluating rawbuiltin \"" + function + "\": " + settings.error_msg);
+                settings.error_msg = "";
                 return script_null;
             }
-            if(args.size() > fun.arg_count) {
-                errors.push("function call with too many arguments: " + function + arguments +
-                    "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
-                return script_null;
-            }
+            return ret;
         }
-        settings.error_msg = "";
-        ScriptVariable ret =  fun.exec(args,settings);
-        if(settings.error_msg != "") errors.push(settings.error_msg);
-        return ret;
     }
 };
 struct _OperatorToken { 
@@ -377,8 +407,7 @@ inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& toke
         else if(!token.str && token.src[0] == '(') {
             ret.push_back(token.src);
         }
-        else if(!token.str && settings.interpreter.has_builtin(token.src)) {
-            ScriptBuiltin builtin = settings.interpreter.get_builtin(token.src);
+        else if(!token.str && (settings.interpreter.has_builtin(token.src) || settings.interpreter.has_rawbuiltin(token.src))) {
             if(i + 1 >= tokens.size() || tokens[i+1].str) {
                 errors.push("function call without argument list");
                 return {};
