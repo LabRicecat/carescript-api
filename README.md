@@ -6,7 +6,7 @@ A simple API for a highly dynamic DSL
 
 To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:
 ```
-$ catcare download catcaretaker/catcare-api
+$ catcare download catcaretaker/catcare-api@main
 ```
 
 Now you can include the file `catpkgs/catcare-api/carescript-api.hpp` and can start!  
