@@ -118,11 +118,11 @@ public:
     val_t list;
 
     val_t get_value() const { return list; }
-    const std::string get_type() const override { return "List"; }
-    bool operator==(const ScriptValue* p) const override {
+    const std::string get_type() const noexcept override { return "List"; }
+    bool operator==(const ScriptValue* p) const noexcept override {
         return p->get_type() == get_type() && ((ListType*)p)->get_value() == get_value();
     };
-    std::string to_printable() const override {
+    std::string to_printable() const noexcept override {
         std::string s = "[";
         for(auto i : list) {
             s += i.string() + ",";
@@ -130,10 +130,10 @@ public:
         if(s != "[") s.pop_back();
         return s + "]";
     }
-    std::string to_string() const override {
+    std::string to_string() const noexcept override {
         return to_printable();
     }
-    ScriptValue* copy() const override {
+    ScriptValue* copy() const noexcept override {
         return new ListType(list);
     }
 
