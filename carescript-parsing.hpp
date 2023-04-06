@@ -72,9 +72,9 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
     if(labels.empty() || labels.count(label_name) == 0) return "";
     ScriptLabel label = labels[label_name];
     std::vector<lexed_kittens> lines;
-    int line = -1;
+    long long line = -1;
     for(auto i : label.lines) {
-        if(i.line != line) {
+        if((long long)i.line != line) {
             line = i.line;
             lines.push_back({});
         }
@@ -125,7 +125,7 @@ inline std::string run_label(std::string label_name, std::map<std::string,Script
             return "line " + std::to_string(settings.line + label.line) + ": unknown function: " + name + " (in label " + label_name + ")";
         }
         ScriptBuiltin builtin = settings.interpreter.script_builtins[name];
-        if(builtin.arg_count != arglist.size() && builtin.arg_count >= 0) {
+        if(builtin.arg_count != (int)arglist.size() && builtin.arg_count >= 0) {
             settings.label.pop();
             return "line " + std::to_string(lines[i][0].line + label.line) + " " + name + " has invalid argument count " + " (in label " + label_name + ")";
         }
@@ -149,7 +149,15 @@ inline static bool is_operator_char(char c) {
            c == '/' ||
            c == '^' ||
            c == '%' ||
-           c == '$';
+           c == '$' ||
+           c == '|' ||
+           c == '&' ||
+           c == '~' ||
+           c == '?' ||
+           c == '!' ||
+           c == '>' ||
+           c == '<' ||
+           c == '=';
 }
 
 inline static bool is_name_char(char c) {
@@ -229,18 +237,7 @@ inline static std::vector<std::string> parse_label_arglist(std::string s) {
 }
 
 inline std::vector<ScriptVariable> parse_argumentlist(std::string source, ScriptSettings& settings) {
-    KittenLexer arg_lexer = KittenLexer()
-        .add_capsule('(',')')
-        .add_capsule('[',']')
-        .add_capsule('{','}')
-        .add_stringq('"')
-        .add_ignore(' ')
-        .add_ignore('\t')
-        .add_ignore('\n')
-        .ignore_backslash_opts()
-        .add_con_extract(is_operator_char)
-        .add_extract(',')
-        .erase_empty();
+    KittenLexer arg_lexer = settings.interpreter.lexer.argumentlist;
 
     source.erase(source.begin());
     source.pop_back();
@@ -330,12 +327,12 @@ struct _ExpressionFuncall {
                 return script_null;
             }
             if(fun.arg_count >= 0) {
-                if(args.size() < fun.arg_count) {
+                if((int)args.size() < fun.arg_count) {
                     errors.push("function call with too little arguments: " + function + arguments + 
                         "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
                     return script_null;
                 }
-                if(args.size() > fun.arg_count) {
+                if((int)args.size() > fun.arg_count) {
                     errors.push("function call with too many arguments: " + function + arguments +
                         "\n- needs: " + std::to_string(fun.arg_count) + " got: " + std::to_string(args.size()));
                     return script_null;
@@ -391,6 +388,9 @@ struct _OperatorToken {
                     }
                     return value;
                 }
+            case OP:
+            default:
+                break;
         }
         return script_null;
     }
@@ -435,7 +435,7 @@ inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& toke
 
 inline static ScriptVariable expression_check_prec(std::vector<_OperatorToken> markedupTokens, int& state, const int maxprec, ScriptSettings& settings, _ExpressionErrors& errors) {
     if(errors.changed()) return script_null;
-    if(state >= markedupTokens.size()) {
+    if(state >= (int)markedupTokens.size()) {
         errors.push("Unexpected end of expression");
         return script_null;
     }
@@ -443,12 +443,14 @@ inline static ScriptVariable expression_check_prec(std::vector<_OperatorToken> m
         
     if(lhs.type == lhs.OP) {
         lhs = lhs.op.op.run(expression_check_prec(markedupTokens, state, lhs.op.op.priority, settings, errors),script_null,settings);
-        if(settings.error_msg != "") 
-            errors.push(settings.error_msg);  
+        if(settings.error_msg != "") {
+            errors.push(settings.error_msg); 
+            settings.error_msg = "";
+        } 
         if(errors.changed()) return script_null;
     }
 
-    while(state < markedupTokens.size()) {
+    while(state < (int)markedupTokens.size()) {
         _OperatorToken vop = markedupTokens[state];
         if(vop.type != vop.OP) { 
             errors.push("expected operator: " + vop.val.printable());
@@ -501,7 +503,7 @@ inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedu
         }
         return markedupTokens[0].get_val(settings,errors);
     }
-    if(i >= markedupTokens.size()) {
+    if(i >= (int)markedupTokens.size()) {
         int i = 0;
         return expression_check_prec(markedupTokens,i,max_prec,settings,errors);
     }
@@ -511,7 +513,7 @@ inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedu
     } 
     else {
         ++i;
-        if(i >= markedupTokens.size()) {
+        if(i >= (int)markedupTokens.size()) {
             int i = 0;
             return expression_check_prec(markedupTokens,i,max_prec,settings,errors); 
         }
@@ -519,6 +521,7 @@ inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedu
     }
 
     for(auto option : settings.interpreter.script_operators[markedupTokens[i].op.tk]) {
+        settings.error_msg = "";
         auto op = markedupTokens[i].op.op;
         if(option.type != op.type)
             continue;
@@ -535,20 +538,8 @@ inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedu
 }
 
 inline ScriptVariable evaluate_expression(std::string source, ScriptSettings& settings) {
-    KittenLexer expression_lexer = KittenLexer()
-        .add_stringq('"')
-        .add_capsule('(',')')
-        .add_capsule('[',']')
-        .add_capsule('{','}')
-        .add_con_extract(is_operator_char)
-        .add_ignore(' ')
-        .add_ignore('\t')
-        .add_backslashopt('t','\t')
-        .add_backslashopt('n','\n')
-        .add_backslashopt('r','\r')
-        .add_backslashopt('\\','\\')
-        .add_backslashopt('"','\"')
-        .erase_empty();
+    KittenLexer expression_lexer = settings.interpreter.lexer.expression;
+    
     auto lexed = expression_lexer.lex(source);
     _ExpressionErrors errors;
 
@@ -572,6 +563,7 @@ inline void parse_const_preprog(std::string source, ScriptSettings& settings) {
         .add_stringq('"')
         .add_capsule('(',')')
         .add_capsule('[',']')
+        .add_capsule('{','}')
         .add_ignore(' ')
         .add_ignore('\t')
         .add_linebreak('\n')
@@ -581,9 +573,9 @@ inline void parse_const_preprog(std::string source, ScriptSettings& settings) {
         .erase_empty();
 
     auto lexed = lexer.lex(source);
-    int line = -1;
+    long long line = -1;
     for(auto i : lexed) {
-        if(i.line != line) {
+        if((long long)i.line != line) {
             line = i.line;
             lines.push_back({});
         }
@@ -610,23 +602,13 @@ inline void parse_const_preprog(std::string source, ScriptSettings& settings) {
 
 inline std::map<std::string,ScriptLabel> pre_process(std::string source, ScriptSettings& settings) {
     std::map<std::string,ScriptLabel> ret;
-    KittenLexer lexer = KittenLexer()
-        .add_stringq('"')
-        .add_capsule('(',')')
-        .add_capsule('[',']')
-        .add_ignore(' ')
-        .add_ignore('\t')
-        .add_linebreak('\n')
-        .add_lineskip('#')
-        .add_extract('@')
-        .ignore_backslash_opts()
-        .erase_empty();
+    KittenLexer lexer = settings.interpreter.lexer.preprocess;
     
     auto lexed = lexer.lex(source);
     std::vector<lexed_kittens> lines;
-    int line = -1;
+    long long line = -1;
     for(auto i : lexed) {
-        if(i.line != line) {
+        if((long long)i.line != line) {
             line = i.line;
             lines.push_back({});
         }

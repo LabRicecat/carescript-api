@@ -70,7 +70,7 @@ public:
 
     OperatorList get_operators() { 
         return {
-            {{"+",{{0,ScriptOperator::BINARY,[](ScriptVariable left, ScriptVariable right, ScriptSettings& settings)->ScriptVariable {
+            {{"+",{{0,ScriptOperator::BINARY,[](const ScriptVariable& left, const ScriptVariable& right, ScriptSettings& settings)->ScriptVariable {
                 cc_operator_same_type(right,left,"+");
                 cc_operator_var_requires(right,"+",ListType);
                 auto lvec = get_value<ListType>(left);

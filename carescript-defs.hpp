@@ -84,7 +84,7 @@ template<ScriptValueType _Tp1, ScriptValueType _Tp2>
 inline bool is_same_type() {
     _Tp1 v1;
     _Tp2 v2;
-    return v1->get_type() == v2->get_type();
+    return v1.get_type() == v2.get_type();
 }
 
 // checks if two ScriptVariable instances have the same type
@@ -129,6 +129,22 @@ struct ScriptSettings {
     std::map<std::string,std::any> storage;
 
     ScriptSettings(Interpreter& i): interpreter(i) {}
+
+    void clear() {
+        line = 0;
+        exit = false;
+        should_run = std::stack<bool>();
+        variables.clear();
+        constants.clear();
+        labels.clear();
+        parent_path = "";
+        ignore_endifs = 0;
+        return_value = script_null;
+        error_msg = "";
+        raw_error = false;
+        label = std::stack<std::string>();
+        storage.clear();
+    }
 };
 
 // storage class for an operator
@@ -136,7 +152,7 @@ struct ScriptOperator {
     int priority = 0;
     // UNKNOWN -> internally used, nono, don't touch it!
     enum {UNARY, BINARY, UNKNOWN} type;
-    ScriptVariable(*run)(ScriptVariable left, ScriptVariable right, ScriptSettings& settings);
+    ScriptVariable(*run)(const ScriptVariable& left, const ScriptVariable& right, ScriptSettings& settings);
 };
 
 using ScriptArglist = std::vector<ScriptVariable>;
@@ -183,6 +199,53 @@ std::vector<ScriptVariable> parse_argumentlist(std::string source, ScriptSetting
 ScriptVariable evaluate_expression(std::string source, ScriptSettings& settings);
 void parse_const_preprog(std::string source, ScriptSettings& settings);
 
+inline static bool is_operator_char(char);
+
+// default lexers, can be accessed and configured by the user 
+struct LexerCollection {
+    KittenLexer argumentlist = KittenLexer()
+        .add_capsule('(',')')
+        .add_capsule('[',']')
+        .add_capsule('{','}')
+        .add_stringq('"')
+        .add_ignore(' ')
+        .add_ignore('\t')
+        .add_ignore('\n')
+        .ignore_backslash_opts()
+        .add_con_extract(is_operator_char)
+        .add_extract(',')
+        .erase_empty();
+    KittenLexer expression = KittenLexer()
+        .add_stringq('"')
+        .add_capsule('(',')')
+        .add_capsule('[',']')
+        .add_capsule('{','}')
+        .add_con_extract(is_operator_char)
+        .add_ignore(' ')
+        .add_ignore('\t')
+        .add_backslashopt('t','\t')
+        .add_backslashopt('n','\n')
+        .add_backslashopt('r','\r')
+        .add_backslashopt('\\','\\')
+        .add_backslashopt('"','\"')
+        .erase_empty();
+    KittenLexer preprocess = KittenLexer()
+        .add_stringq('"')
+        .add_capsule('(',')')
+        .add_capsule('[',']')
+        .add_ignore(' ')
+        .add_ignore('\t')
+        .add_linebreak('\n')
+        .add_lineskip('#')
+        .add_extract('@')
+        .ignore_backslash_opts()
+        .erase_empty();
+    
+    void clear() {
+        argumentlist = expression = preprocess = KittenLexer();
+    }
+};
+
 class Interpreter;
 // storage class to temporarily store states of the interpreter
 struct InterpreterState {
@@ -192,6 +255,8 @@ struct InterpreterState {
     std::unordered_map<std::string,std::string> script_macros;
     std::unordered_map<std::string,ScriptRawBuiltin> script_rawbuiltins;
 
+    LexerCollection lexers;
+
     InterpreterState() {}
     InterpreterState(const Interpreter& interp) { save(interp); }
     InterpreterState(
@@ -199,12 +264,14 @@ struct InterpreterState {
         const std::map<std::string,std::vector<ScriptOperator>>& b,
         const std::vector<ScriptTypeCheck>& c,
         const std::unordered_map<std::string,std::string>& d,
-        const std::unordered_map<std::string,ScriptRawBuiltin>& e):
+        const std::unordered_map<std::string,ScriptRawBuiltin>& e,
+        const LexerCollection& f):
         script_builtins(a),
         script_operators(b),
         script_typechecks(c),
         script_macros(d),
-        script_rawbuiltins(e) {}
+        script_rawbuiltins(e),
+        lexers(f) {}
 
     void load(Interpreter& interp) const;
     void save(const Interpreter& interp);
@@ -227,6 +294,10 @@ struct InterpreterState {
     }
     InterpreterState& operator=(const std::unordered_map<std::string,ScriptRawBuiltin>& a) {
         script_rawbuiltins = a;
+        return *this;
+    }
+    InterpreterState& operator=(const LexerCollection& a) {
+        lexers = a;
         return *this;
     }
 
@@ -260,11 +331,11 @@ struct InterpreterState {
 
 // helper class for handling errors
 struct InterpreterError  {
+    Interpreter& interpreter;
 private:
     bool has_value = false;
-    ScriptVariable value;
+    ScriptVariable value = script_null;
 public:
-    Interpreter& interpreter;
     InterpreterError(Interpreter& i): interpreter(i) {}
     InterpreterError(Interpreter& i, ScriptVariable val): interpreter(i), value(val) { has_value = true; }
     InterpreterError& on_error(std::function<void(Interpreter&)>);
@@ -289,6 +360,8 @@ public:
     std::vector<ScriptTypeCheck> script_typechecks = default_script_typechecks;
     std::unordered_map<std::string,std::string> script_macros = default_script_macros;
     std::unordered_map<std::string,ScriptRawBuiltin> script_rawbuiltins;
+    
+    LexerCollection lexer;
     ScriptSettings settings = ScriptSettings(*this);
     
     void save(int id) {
@@ -305,6 +378,8 @@ public:
         script_typechecks.clear();
         script_macros.clear();
         script_rawbuiltins.clear();
+        lexer.clear();
+        settings.clear();
     }
 
     operator bool() {
@@ -324,6 +399,7 @@ public:
     InterpreterError run() {
         settings.return_value = script_null;
         settings.line = 1;
+        settings.exit = false;
         settings.error_msg = run_label("main",settings.labels,settings,"",{});
         settings.exit = false;
         error_check();
@@ -340,6 +416,7 @@ public:
         settings.line = 1;
         settings.exit = false;
         settings.error_msg = run_label(label,settings.labels,settings,"",args);
+        settings.exit = false;
         error_check();
         return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
     }
@@ -350,6 +427,11 @@ public:
         settings.exit = false;
         error_check();
         return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
+    }
+    InterpreterError expression(std::string source) {
+        auto ret = evaluate_expression(source,settings);
+        error_check();
+        return is_null(ret) ? *this : InterpreterError(*this,ret);
     }
 
     int to_local_line(int line) { return line - settings.labels[settings.label.top()].line; }
@@ -416,6 +498,13 @@ public:
     ScriptRawBuiltin& get_rawbuiltin(std::string name) {
         return script_rawbuiltins[name];
     }
+
+    bool has_variable(std::string name) {
+        return settings.variables.find(name) != settings.variables.end();
+    }
+    ScriptVariable& get_variable(std::string name) {
+        return settings.variables[name];
+    }
     
 };
 
@@ -441,6 +530,7 @@ inline void InterpreterState::load(Interpreter& interp) const {
     interp.script_typechecks = this->script_typechecks;
     interp.script_macros = this->script_macros;
     interp.script_rawbuiltins = this->script_rawbuiltins;
+    interp.lexer = this->lexers;
 }
 inline void InterpreterState::save(const Interpreter& interp) {
     script_builtins = interp.script_builtins;
@@ -448,6 +538,7 @@ inline void InterpreterState::save(const Interpreter& interp) {
     script_typechecks = interp.script_typechecks;
     script_macros = interp.script_macros;
     script_rawbuiltins = interp.script_rawbuiltins;
+    lexers = interp.lexer;
 }
 
 // converts a literal into a variable
@@ -505,8 +596,8 @@ using get_extension_fun = Extension*(*)();
 // external overloads for the ScriptVariable constructor
 
 template<typename _Tp>
-concept IntegralType = std::is_integral<_Tp>::value;
-template<IntegralType _Tp>
+concept ArithmeticType = std::is_arithmetic<_Tp>::value;
+template<ArithmeticType _Tp>
 inline void from(carescript::ScriptVariable& var, _Tp integral) {
     var = new carescript::ScriptNumberValue(integral);
 }

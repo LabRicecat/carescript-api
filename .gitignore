@@ -1,7 +1,7 @@
 *.out
 carescript
 *.so
-main.cpp
+*.cpp
 test.ccs 
 build/
 glob/
