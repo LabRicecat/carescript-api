@@ -2,6 +2,8 @@
 A simple API for a highly dynamic DSL
 
 ## Installation 
+C++ version: 20 (tested with g++ on linux)
+
 **Note: the carescript API is not a standallone project, it's designed to be used as a dependency!**  
 
 To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:  
