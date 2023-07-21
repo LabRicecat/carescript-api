@@ -38,3 +38,13 @@ path_notes = "- fixed that compiling with -Wall -Wextra is now silent
 "
 date = "2023/4"
 
+[0.2.0]
+path_notes = "- added optimization options where needed
+- added more syntactical suggar
+- added \"@pragma\"
+- added custom pre processes
+- added rawbuiltins to extensions
+- added more methods to extensions
+"
+date = "2023/7"
+

@@ -3,6 +3,11 @@
 
 #include "carescript-defs.hpp"
 
+/*
+    Defines some default builtins, operators etc
+    So it can be used out of the box
+*/
+
 namespace carescript {
 
 inline std::map<std::string,ScriptBuiltin> default_script_builtins = {

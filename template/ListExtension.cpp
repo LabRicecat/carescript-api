@@ -13,11 +13,11 @@ public:
     val_t list;
 
     val_t get_value() const { return list; }
-    const std::string get_type() const override { return "List"; }
-    bool operator==(const ScriptValue* p) const {
+    const std::string get_type() const noexcept override { return "List"; }
+    bool operator==(const ScriptValue* p) const noexcept{
         return p->get_type() == get_type() && ((ListType*)p)->get_value() == get_value();
     };
-    std::string to_printable() const {
+    std::string to_printable() const noexcept {
         std::string s = "[";
         for(auto i : list) {
             s += i.string() + ",";
@@ -25,10 +25,10 @@ public:
         if(s != "[") s.pop_back();
         return s + "]";
     }
-    std::string to_string() const {
+    std::string to_string() const noexcept {
         return to_printable();
     }
-    ScriptValue* copy() const {
+    ScriptValue* copy() const noexcept {
         return new ListType(list);
     }
 
@@ -106,7 +106,7 @@ public:
         }; 
     }
     MacroList get_macros() { return {}; }
-}static inline inst;
+};
 
 namespace carescript {
     // syntax sugar to enable
@@ -117,5 +117,5 @@ namespace carescript {
 }
 
 CARESCRIPT_EXTENSION_GETEXT(
-    return &inst;
+    return new ListExtention();
 )

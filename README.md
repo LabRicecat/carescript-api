@@ -6,10 +6,10 @@ A simple API for a highly dynamic DSL
 
 To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:
 ```
-$ catcare download catcaretaker/catcare-api@main
+$ catcare download labricecat/carescript-api@main
 ```
 
-Now you can include the file `catpkgs/catcare-api/carescript-api.hpp` and can start!  
+Now you can include the file `catpkgs/carescript-api/carescript-api.hpp` and can start!  
 
 ## Usage
 ### language layout
@@ -117,7 +117,8 @@ public:
     using val_t = std::vector<ScriptVariable>;
     val_t list;
 
-    val_t get_value() const { return list; }
+    val_t get_value() const noexcept { return list; }
+    val_t& get_value() noexcept { return list; }
     const std::string get_type() const noexcept override { return "List"; }
     bool operator==(const ScriptValue* p) const noexcept override {
         return p->get_type() == get_type() && ((ListType*)p)->get_value() == get_value();

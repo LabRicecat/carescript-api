@@ -12,17 +12,18 @@ public:
     ScriptVariable* ref;
 
     ScriptVariable* get_value() const { return ref; }
-    const std::string get_type() const override { return "Reference"; }
-    bool operator==(const ScriptValue* p) const {
+    ScriptVariable* get_value() { return ref; }
+    const std::string get_type() const noexcept override { return "Reference"; }
+    bool operator==(const ScriptValue* p) const noexcept {
         return false;
     };
-    std::string to_printable() const {
+    std::string to_printable() const noexcept {
         return "ref(" + ref->printable() + ")";
     }
-    std::string to_string() const {
+    std::string to_string() const noexcept {
         return to_printable();
     }
-    ScriptValue* copy() const {
+    ScriptValue* copy() const noexcept {
         ReferenceType* a = new ReferenceType;
         a->ref = ref;
         return a;
@@ -34,7 +35,7 @@ public:
     
 };
 
-class ListExtention : public Extension {
+class ReferenceExtention : public Extension {
 public:
     BuiltinList get_builtins() override {
         return {
@@ -63,8 +64,8 @@ public:
     OperatorList get_operators() { return {}; }
     TypeList get_types() { return {}; }
     MacroList get_macros() { return {}; }
-}static inline inst;
+};
 
 CARESCRIPT_EXTENSION_GETEXT(
-    return &inst;
-);
+    return new ReferenceExtention();
+)

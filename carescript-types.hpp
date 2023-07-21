@@ -16,6 +16,7 @@ struct ScriptValue {
     virtual std::string to_string() const noexcept = 0;
     virtual ScriptValue* copy() const noexcept = 0;
     void get_value() const noexcept {}
+    void get_value() noexcept {}
 
     virtual ~ScriptValue() {};
 };
@@ -40,12 +41,13 @@ struct ScriptNumberValue : public ScriptValue {
     }
 
     long double get_value() const noexcept { return number; }
+    long double& get_value() noexcept { return number; }
     ScriptValue* copy() const noexcept override { return new ScriptNumberValue(number); }
 
     ScriptNumberValue() {}
     ScriptNumberValue(long double num): number(num) {}
 
-    operator long double() noexcept { return get_value(); }
+    operator long double() const noexcept { return get_value(); }
 };
 
 // default string type implementation
@@ -65,12 +67,13 @@ struct ScriptStringValue : public ScriptValue {
     }
 
     std::string get_value() const noexcept { return string; }
+    std::string& get_value() noexcept { return string; }
     ScriptValue* copy() const noexcept override { return new ScriptStringValue(string); }
 
     ScriptStringValue() {}
     ScriptStringValue(std::string str): string(str) {}
 
-    operator std::string() noexcept { return get_value(); }
+    operator std::string() const noexcept { return get_value(); }
 };
 
 // default name type implementation
@@ -90,6 +93,7 @@ struct ScriptNameValue : public ScriptValue {
     }
 
     std::string get_value() const noexcept { return name; }
+    std::string& get_value() noexcept { return name; }
     ScriptValue* copy() const noexcept override { return new ScriptNameValue(name); }
 
     ScriptNameValue() {}

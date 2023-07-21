@@ -2,7 +2,7 @@
 
 [Info]
 name = "carescript-api"
-version = "0.1.3"
+version = "0.2.0"
 
 [Download]
 dependencies = ["https://raw.githubusercontent.com/labricecat/kittenlexer/main/"]

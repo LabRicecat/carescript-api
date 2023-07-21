@@ -18,46 +18,54 @@
 #ifdef _WIN32
 # include <windows.h>
 namespace carescript {
-inline static Extension* get_ext(std::filesystem::path name) noexcept { return nullptr; }
+inline static ExtensionData get_ext(std::filesystem::path name) noexcept { return nullptr; }
 #elif defined(__linux__)
 # include <dlfcn.h>
 namespace carescript {
-inline static Extension* get_ext(std::filesystem::path name) noexcept {
+inline static ExtensionData get_ext(std::filesystem::path name) noexcept {
     if(!name.has_extension()) name += ".so";
     if(name.is_relative())
         name = "./" + name.string();
     void* handler = dlopen(name.c_str(),RTLD_NOW);
-    if(handler == nullptr) return nullptr;
+    if(handler == nullptr) return {0,nullptr};
     get_extension_fun f = (get_extension_fun)dlsym(handler,"get_extension");
-    if(f == nullptr) return nullptr;
+    if(f == nullptr) return {0,nullptr};
     return f();
 }
 #endif
 
-inline bool bake_extension(std::string name, ScriptSettings& settings) noexcept {
-    Extension* ext = get_ext(name);
-    return bake_extension(ext,settings);
-}
+inline static bool bake_extension(ExtensionData ext, ScriptSettings& settings) noexcept {
+    if(ext.extension == nullptr) return false;
 
-inline bool bake_extension(Extension* ext, ScriptSettings& settings) noexcept {
-    if(ext == nullptr) return false;
-
-    BuiltinList b_list = ext->get_builtins();
+    ext.extension->interp_link = &settings.interpreter;
+    BuiltinList b_list = ext.extension->get_builtins();
     settings.interpreter.script_builtins.insert(b_list.begin(),b_list.end());
-    TypeList t_list = ext->get_types();
+    TypeList t_list = ext.extension->get_types();
     for(auto i : t_list) settings.interpreter.script_typechecks.push_back(i);
-    OperatorList o_list = ext->get_operators();
+    OperatorList o_list = ext.extension->get_operators();
     for(auto i : o_list) {
         for(auto j : i.second) {
             settings.interpreter.script_operators[i.first].push_back(j);
         }
     }
-    MacroList m_list = ext->get_macros();
+    MacroList m_list = ext.extension->get_macros();
     settings.interpreter.script_macros.insert(m_list.begin(),m_list.end());
+    PreProcList p_list = ext.extension->get_preprocesses();
+    settings.interpreter.script_preprocesses.insert(p_list.begin(),p_list.end());
+    RawBuiltinList r_list = ext.extension->get_rawbuiltins();
+    settings.interpreter.script_rawbuiltins.insert(r_list.begin(),r_list.end());
+
+    settings.interpreter.extensions.push_back(ext);
+    ext.extension->poke_interpreter(settings.interpreter);
     return true;
 }
 
-inline std::string run_script(std::string source,ScriptSettings& settings) noexcept {
+inline static bool bake_extension(const std::string& name, ScriptSettings& settings) noexcept {
+    ExtensionData ext = get_ext(name);
+    return bake_extension(ext,settings);
+}
+
+inline static std::string run_script(const std::string& source,ScriptSettings& settings) noexcept {
     auto labels = pre_process(source,settings);
     if(settings.error_msg != "") {
         return settings.error_msg;
@@ -68,7 +76,7 @@ inline std::string run_script(std::string source,ScriptSettings& settings) noexc
     return ret;
 }
 
-inline std::string run_label(std::string label_name, std::map<std::string,ScriptLabel> labels, ScriptSettings& settings, std::filesystem::path parent_path, std::vector<ScriptVariable> args) noexcept {
+inline static std::string run_label(const std::string& label_name, std::map<std::string,ScriptLabel> labels, ScriptSettings& settings, const std::filesystem::path& parent_path, const std::vector<ScriptVariable>& args) noexcept {
     if(labels.empty() || labels.count(label_name) == 0) return "";
     ScriptLabel label = labels[label_name];
     std::vector<lexed_kittens> lines;
@@ -167,7 +175,7 @@ inline static bool is_name_char(char c) noexcept {
             c == '_';
 }
 
-inline static bool is_name(std::string s) noexcept {
+inline static bool is_name(const std::string& s) noexcept {
     if(s.empty()) return false;
     try { 
         std::stoi(std::string(1,s[0]));
@@ -237,12 +245,10 @@ inline static std::vector<std::string> parse_label_arglist(std::string s) noexce
 }
 
 inline std::vector<ScriptVariable> parse_argumentlist(std::string source, ScriptSettings& settings) noexcept {
-    KittenLexer arg_lexer = settings.interpreter.lexer.argumentlist;
-
     source.erase(source.begin());
     source.pop_back();
 
-    auto lexed = arg_lexer.lex(source);
+    auto lexed = settings.interpreter.lexer.p_argumentlist(source);
     if(lexed.empty()) return std::vector<ScriptVariable>{};
     std::vector<std::string> args(1);
     for(auto i : lexed) {
@@ -265,59 +271,31 @@ inline std::vector<ScriptVariable> parse_argumentlist(std::string source, Script
     return ret;
 }
 
-inline static bool is_operator(std::string src, ScriptSettings& settings) noexcept {
+inline static bool is_operator(const std::string& src, ScriptSettings& settings) noexcept {
     return settings.interpreter.script_operators.count(src) != 0;
 }
 
-// TODO
-/*inline ScriptVariable try_merging(lexed_kittens tokens, ScriptSettings& settings, std::vector<std::string>& error_msgs) {
-    ScriptVariable r;
-    lexed_kittens current = tokens;
-    struct mergable { size_t pos = 0, length = 0; };
-    std::vector<mergable> mergables;
-
-    bool f = false;
-    for(size_t i = 0; i < current.size(); ++i) {
-        if(!current[i].str && is_operator(current[i].src,settings)) {
-            if(f) ++mergables.back().length;
-            else mergables.push_back({i,1});
-            f = true;
-        }
-        else f = false;
-    }
-
-    for(size_t i = 0; i < mergables.size(); ++i) {
-        for(size_t j = i; j < mergables.size(); ++j) {
-            for(size_t k = 0; k < mergables[i].length; ++k) {
-                for(size_t ki = k; ki < mergables[i].length; ++ki) {
-
-                }
-            }
-        }
-    }
-}*/
-
-struct _ExpressionErrors {
+struct _expressionErrors {
     std::vector<std::string> messages;
     bool has_new = false;
     
-    _ExpressionErrors& push(std::string msg) noexcept {
+    inline _expressionErrors& push(std::string msg) noexcept {
         messages.push_back(msg);
         has_new = true;
         return *this;
     }
 
-    bool changed() const noexcept { return has_new; }
-    void reset() noexcept { has_new = false; }
+    inline bool changed() const noexcept { return has_new; }
+    inline void reset() noexcept { has_new = false; }
 
-    operator std::vector<std::string>() const noexcept { return messages; }
+    inline operator std::vector<std::string>() const noexcept { return messages; }
 };
-struct _ExpressionToken { std::string tk; ScriptOperator op; };
-struct _ExpressionFuncall { 
+struct _expressionToken { std::string tk; ScriptOperator op; };
+struct _expressionFuncall { 
     std::string function; 
     std::string arguments; 
 
-    ScriptVariable call(ScriptSettings& settings, _ExpressionErrors& errors) noexcept {
+    inline ScriptVariable call(ScriptSettings& settings, _expressionErrors& errors) noexcept {
         if(settings.interpreter.has_builtin(function)) {
             ScriptArglist args = parse_argumentlist(arguments,settings);
             ScriptBuiltin fun = settings.interpreter.get_builtin(function);
@@ -356,20 +334,20 @@ struct _ExpressionFuncall {
         }
     }
 };
-struct _OperatorToken { 
+struct _operatorToken { 
     ScriptVariable val;
-    _ExpressionToken op;
-    _ExpressionFuncall call;
+    _expressionToken op;
+    _expressionFuncall call;
     std::string capsule;
     enum { OP, VAL, CALL, CAPSULE } type;
 
-    _OperatorToken(ScriptVariable v): val(v) { type = VAL; }
-    _OperatorToken(_ExpressionToken v): op(v) { type = OP; }
-    _OperatorToken(_ExpressionFuncall v): call(v) { type = CALL; }
-    _OperatorToken(std::string v): capsule(v) { type = CAPSULE; }
-    _OperatorToken() = delete;
+    _operatorToken(ScriptVariable v): val(v) { type = VAL; }
+    _operatorToken(_expressionToken v): op(v) { type = OP; }
+    _operatorToken(_expressionFuncall v): call(v) { type = CALL; }
+    _operatorToken(std::string v): capsule(v) { type = CAPSULE; }
+    _operatorToken() = delete;
 
-    ScriptVariable get_val(ScriptSettings& settings, _ExpressionErrors& errors) noexcept {
+    inline ScriptVariable get_val(ScriptSettings& settings, _expressionErrors& errors) noexcept {
         switch(type) {
             case VAL:
                 return val;
@@ -396,13 +374,13 @@ struct _OperatorToken {
     }
 };
 
-inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& tokens, ScriptSettings& settings, _ExpressionErrors& errors) noexcept {
-    std::vector<_OperatorToken> ret;
+inline static std::vector<_operatorToken> expression_prepare_tokens(lexed_kittens& tokens, ScriptSettings& settings, _expressionErrors& errors) noexcept {
+    std::vector<_operatorToken> ret;
     for(size_t i = 0; i < tokens.size(); ++i) {
         auto token = tokens[i];
         std::string r = token.src;
         if(!token.str && is_operator(token.src,settings)) {
-            ret.push_back(_ExpressionToken{r,ScriptOperator()});
+            ret.push_back(_expressionToken{r,ScriptOperator()});
         }
         else if(!token.str && token.src[0] == '(') {
             ret.push_back(token.src);
@@ -418,7 +396,7 @@ inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& toke
                 return {};
             }
 
-            ret.push_back(_ExpressionFuncall{tokens[i].src, tokens[i+1].src});
+            ret.push_back(_expressionFuncall{tokens[i].src, tokens[i+1].src});
             ++i;
         }
         else {
@@ -433,13 +411,13 @@ inline std::vector<_OperatorToken> expression_prepare_tokens(lexed_kittens& toke
     return ret;
 }
 
-inline static ScriptVariable expression_check_prec(std::vector<_OperatorToken> markedupTokens, int& state, const int maxprec, ScriptSettings& settings, _ExpressionErrors& errors) noexcept {
+inline static ScriptVariable expression_check_prec(std::vector<_operatorToken> markedupTokens, int& state, const int& maxprec, ScriptSettings& settings, _expressionErrors& errors) noexcept {
     if(errors.changed()) return script_null;
     if(state >= (int)markedupTokens.size()) {
         errors.push("Unexpected end of expression");
         return script_null;
     }
-    _OperatorToken lhs = markedupTokens[state++];
+    _operatorToken lhs = markedupTokens[state++];
         
     if(lhs.type == lhs.OP) {
         lhs = lhs.op.op.run(expression_check_prec(markedupTokens, state, lhs.op.op.priority, settings, errors),script_null,settings);
@@ -451,7 +429,7 @@ inline static ScriptVariable expression_check_prec(std::vector<_OperatorToken> m
     }
 
     while(state < (int)markedupTokens.size()) {
-        _OperatorToken vop = markedupTokens[state];
+        _operatorToken vop = markedupTokens[state];
         if(vop.type != vop.OP) { 
             errors.push("expected operator: " + vop.val.printable());
             return script_null; 
@@ -480,9 +458,9 @@ inline static ScriptVariable expression_check_prec(std::vector<_OperatorToken> m
     return lhs.get_val(settings,errors);
 }
 
-inline bool valid_expression(std::vector<_OperatorToken> markedupTokens, ScriptSettings& settings) noexcept {
+inline static bool valid_expression(std::vector<_operatorToken> markedupTokens, ScriptSettings& settings) noexcept {
     const static int max_prec = 999999999;
-    _ExpressionErrors errs;
+    _expressionErrors errs;
     try {
         int i = 0;
         expression_check_prec(markedupTokens,i,max_prec,settings,errs);
@@ -493,7 +471,7 @@ inline bool valid_expression(std::vector<_OperatorToken> markedupTokens, ScriptS
     return errs.changed();
 }
 
-inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedupTokens, ScriptSettings& settings, _ExpressionErrors& errors, int i = 0) noexcept {
+inline static ScriptVariable expression_force_parse(std::vector<_operatorToken> markedupTokens, ScriptSettings& settings, _expressionErrors& errors, int i = 0) noexcept {
     const static int max_prec = 999999999;
     if(errors.changed()) return script_null;
     if(markedupTokens.size() == 1) {
@@ -537,11 +515,9 @@ inline ScriptVariable expression_force_parse(std::vector<_OperatorToken> markedu
     return script_null;
 }
 
-inline ScriptVariable evaluate_expression(std::string source, ScriptSettings& settings) noexcept {
-    KittenLexer expression_lexer = settings.interpreter.lexer.expression;
-    
-    auto lexed = expression_lexer.lex(source);
-    _ExpressionErrors errors;
+inline static ScriptVariable evaluate_expression(const std::string& source, ScriptSettings& settings) noexcept {
+    auto lexed = settings.interpreter.lexer.p_expression(source);
+    _expressionErrors errors;
 
     auto result = expression_force_parse(expression_prepare_tokens(lexed,settings,errors),settings,errors);
 
@@ -556,8 +532,7 @@ inline ScriptVariable evaluate_expression(std::string source, ScriptSettings& se
     return result;
 }
 
-
-inline void parse_const_preprog(std::string source, ScriptSettings& settings) noexcept {
+inline static void parse_const_preprog(const std::string& source, ScriptSettings& settings) noexcept {
     std::vector<lexed_kittens> lines;
     KittenLexer lexer = KittenLexer()
         .add_stringq('"')
@@ -600,11 +575,10 @@ inline void parse_const_preprog(std::string source, ScriptSettings& settings) no
     }
 }
 
-inline std::map<std::string,ScriptLabel> pre_process(std::string source, ScriptSettings& settings) noexcept {
+inline static std::map<std::string,ScriptLabel> pre_process(const std::string& source, ScriptSettings& settings) noexcept {
     std::map<std::string,ScriptLabel> ret;
-    KittenLexer lexer = settings.interpreter.lexer.preprocess;
     
-    auto lexed = lexer.lex(source);
+    auto lexed = settings.interpreter.lexer.p_preprocess(source);
     std::vector<lexed_kittens> lines;
     long long line = -1;
     for(auto i : lexed) {
@@ -619,7 +593,7 @@ inline std::map<std::string,ScriptLabel> pre_process(std::string source, ScriptS
     for(size_t i = 0; i < lines.size(); ++i) {
         auto& line = lines[i];
         if(line.size() != 0 && line[0].src == "@" && !line[0].str) {
-            if(line.size() != 3) {
+            if(line.size() != 3 && (line.size() > 1 && line[1].src != "pragma")) {
                 settings.error_msg = "line " + std::to_string(i+1) + ": invalid pre processor instruction: must have 2 arguments (got: " + std::to_string(line.size()-1) + ")";
                 return {};
             }
@@ -686,9 +660,28 @@ inline std::map<std::string,ScriptLabel> pre_process(std::string source, ScriptS
                     }
                 }
             }
+            else if(inst == "pragma") {
+                line.erase(line.begin(),line.begin()+2);
+                if(line.size() == 0) {
+                    settings.error_msg = "line " + std::to_string(i+1) + ": pragma: no instruction";
+                    return {};
+                }
+                if(line[0].str || settings.interpreter.script_preprocesses.count(line[0].src) == 0) {
+                    settings.error_msg = "line " + std::to_string(i+1) + ": pragma: unknown instruction";
+                    return {};
+                }
+                auto proc = settings.interpreter.script_preprocesses[line[0].src];
+                line.erase(line.begin());
+                proc(line,lines,i,settings);
+                if(settings.error_msg != "") {
+                    settings.error_msg = "line " + std::to_string(i+1) + ": pragma: " + settings.error_msg;
+                    return {};
+                }
+            }
             else if(is_label_arglist(line[2].src) && !line[2].str) {
                 if(ret.count(line[1].src) != 0) {
                     settings.error_msg = "line " + std::to_string(i+1) + ": can't open label twice: " + line[1].src;
+                    return {};
                 }
                 current_label = line[1].src;
                 ret[current_label].arglist = parse_label_arglist(line[2].src);
