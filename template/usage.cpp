@@ -32,8 +32,13 @@ int main() {
     Interpreter interp;
     ScriptVariable value = interp.eval(R"(
         echoln("Test begins...")
-        return(12)
-    )").get_value_or(0);
+        return(3 + 3)
+    )").on_error([](Interpreter& i) {
+        std::cout << i.error() << "\n";
+    }).otherwise([&](Interpreter& i) {
+                                                                // instead of `value` as that's not initialized
+        std::cout << "Returned: " << get_value<ScriptNumberValue>(i.settings.return_value) << "\n";
+    });
 
     try {
         interp.pre_process(source_code).throw_error();
