@@ -2,7 +2,7 @@
 A simple API for a highly dynamic DSL
 
 ## Installation 
-**Note: the carescript API is not a standallone project, it's designed to be used as a tool!**  
+**Note: the carescript API is not a standallone project, it's designed to be used as a dependency!**  
 
 To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:
 ```
@@ -12,7 +12,7 @@ $ catcare download labricecat/carescript-api@main
 Now you can include the file `catpkgs/carescript-api/carescript-api.hpp` and can start!  
 
 ## Usage
-### language layout
+### Language layout
 
 Carescript is very simple, it's always:
 ```
@@ -20,7 +20,7 @@ function(<args...>)
 function(<args...>)
 ...
 ```
-there are also pre processor options starting with `@`:
+There are also pre processor options starting with `@`:
 ```
 @main[]
     echoln("This is the main function")
@@ -39,8 +39,9 @@ The code above defines two labels (simmilar to functions):
 
 Variables are stored locally to each label and can not be shared.
 
-### using the interpreter
+### Using the interpreter
 ```c++
+// Includes everything of the API
 #include "catpkgs/catcare-api/carescript-api.hpp"
 
 int main() {
@@ -74,7 +75,7 @@ int main() {
     // note: this will also remove the loaded extension from before!
 }
 ```
-### manually adding functionallity
+### Manually adding functionallity
 ```c++
 int main() {
     using namespace carescript;
@@ -105,13 +106,13 @@ int main() {
 }
 ```
 **Note: there are more `.add_*` methods, such as for operators, macros, etc...
-### writing an extension
+### Writing an extension
 ```c++
 #include "carescript-api.hpp"
 
 CARESCRIPT_EXTENSION
 
-// implent a new type by adding a class that implements the ScriptValue interface
+// Implent a new type by adding a class that implements the ScriptValue interface
 class ListType : public ScriptValue {
 public:
     using val_t = std::vector<ScriptVariable>;
@@ -220,16 +221,14 @@ public:
             }
         }; 
     }
-    // No macros needed
-    MacroList get_macros() { return {}; }
-// defines an instance for the baking process
-}static inline inst;
+};
 
-// at the end, define what the extension's instance is
+// At the end, define how the extension gets instances
 CARESCRIPT_EXTENSION_GETEXT(
-    return &inst;
+    return new ListExtention(); // this will get freed automatically, don't worry
 )
 ```
+More examples can be found in the `template/` directory.
 
 To add an extension either use
 ```c++
@@ -238,10 +237,12 @@ carescript::bake_extension("name.so",interpreter);
 or inside of the script do
 ```py
 @bake[
-    "name.so"
+    "extension1"
+    "extension2"
+    ...
 ]
 ```
-#### adding an extension
+#### Adding an extension
 To add an extension either add it at compile time using the `bake_extension` method, or compile it into a  
 shared object with the following command:
 ```sh
