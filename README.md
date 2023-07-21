@@ -4,7 +4,8 @@ A simple API for a highly dynamic DSL
 ## Installation 
 **Note: the carescript API is not a standallone project, it's designed to be used as a dependency!**  
 
-To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:
+To install the carescriptAPI, install the [CatCaretaker](https://github.com/LabRicecat/CatCaretaker) and run:  
+(This will only add some dependencies and put it nicely in a folder, you can also simply clone the repository)
 ```
 $ catcare download labricecat/carescript-api@main
 ```
