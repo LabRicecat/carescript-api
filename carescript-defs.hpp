@@ -19,8 +19,8 @@
 
 namespace carescript {
 
-template<typename _Tp>
-concept ScriptValueType = std::is_base_of<carescript::ScriptValue,_Tp>::value;
+template<typename Tp>
+concept ScriptValueType = std::is_base_of<carescript::ScriptValue,Tp>::value;
 
 // Wrapper class to perfom tasks on a
 // subclass of the abstract class "ScriptValue"
@@ -37,8 +37,8 @@ struct ScriptVariable {
         if(var.value.get() != nullptr) value.reset(var.value->copy());
     }
 
-    template<typename _Tp>
-    ScriptVariable(_Tp a) {
+    template<typename Tp>
+    ScriptVariable(Tp a) {
         // note here: we use `from` but it is class internally only
         // defined for ScriptValue pointers.
         // The user can define other `from` functions inside the
@@ -62,9 +62,9 @@ struct ScriptVariable {
         return value.get()->to_string();
     }
 
-    template<typename _Tp>
-    inline operator _Tp() const noexcept {
-        return get_value<_Tp>(*this);
+    template<typename Tp>
+    inline operator Tp() const noexcept {
+        return get_value<Tp>(*this);
     }
 
     inline friend void from(ScriptVariable& var, ScriptValue* a) noexcept {
@@ -73,17 +73,17 @@ struct ScriptVariable {
 };
 
 // checks if a variable has a specific type
-template<ScriptValueType _Tval>
+template<ScriptValueType Tval>
 inline bool is_typeof(const carescript::ScriptVariable& var) noexcept {
-    _Tval inst;
+    Tval inst;
     return var.get_type() == inst.get_type();
 }
 
 // checks if two subclasses of ScriptValue are the same
-template<ScriptValueType _Tp1, ScriptValueType _Tp2>
+template<ScriptValueType Tp1, ScriptValueType Tp2>
 inline static bool is_same_type() noexcept {
-    _Tp1 v1;
-    _Tp2 v2;
+    Tp1 v1;
+    Tp2 v2;
     return v1.get_type() == v2.get_type();
 }
 
@@ -98,13 +98,13 @@ inline static bool is_null(const ScriptVariable& v) noexcept {
 }
 
 // returns the unwrapped type of a variable
-template<typename _Tp>
+template<typename Tp>
 inline static auto get_value(const carescript::ScriptVariable& v) noexcept {
-    return ((const _Tp*)v.value.get())->get_value();
+    return ((const Tp*)v.value.get())->get_value();
 }
-template<typename _Tp>
+template<typename Tp>
 inline static auto& get_value(carescript::ScriptVariable& v) noexcept {
-    return ((_Tp*)v.value.get())->get_value();
+    return ((Tp*)v.value.get())->get_value();
 }
 
 // modify only if you know what you're doing
@@ -441,8 +441,8 @@ public:
         return is_null(settings.return_value) ? *this : InterpreterError(*this,settings.return_value);
     }
 
-    template<typename... _Targs>
-    inline InterpreterError run(std::string label, _Targs ...targs) {
+    template<typename... Targs>
+    inline InterpreterError run(std::string label, Targs ...targs) {
         std::vector<ScriptVariable> args = {targs...};
         return run(label,args);
     }
@@ -649,7 +649,15 @@ extern "C" { \
         ); \
     } \
 }
-#define CARESCRIPT_EXTENSION_GETEXT_INLINE CARESCRIPT_EXTENSION_GETEXT
+#define CARESCRIPT_EXTENSION_GETEXT_INLINE(...) \
+extern "C" { \
+    inline static carescript::ExtensionData get_extension() { \
+        using t = std::remove_pointer<decltype([&](){ __VA_ARGS__ }())>::type; \
+        return carescript::ExtensionData::make<t>( \
+            [&]()->t*{ __VA_ARGS__ }() \
+        ); \
+    } \
+}
 
 using BuiltinList = std::unordered_map<std::string,ScriptBuiltin>;
 using OperatorList = std::unordered_map<std::string,std::vector<ScriptOperator>>;
@@ -727,12 +735,11 @@ using get_extension_fun = ExtensionData(*)();
 
 // external overloads for the ScriptVariable constructor
 
-template<typename _Tp>
-concept ArithmeticType = std::is_arithmetic<_Tp>::value;
-template<ArithmeticType _Tp>
-inline void from(carescript::ScriptVariable& var, const _Tp& integral) noexcept {
+template<typename Tp> requires std::is_arithmetic_v<Tp>
+inline void from(carescript::ScriptVariable& var, const Tp& integral) noexcept {
     var = new carescript::ScriptNumberValue(integral);
 }
+
 inline void from(carescript::ScriptVariable& var, const std::string& string) noexcept{
     var = new carescript::ScriptStringValue(string);
 }

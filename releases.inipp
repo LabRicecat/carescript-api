@@ -48,3 +48,8 @@ path_notes = "- added optimization options where needed
 "
 date = "2023/7"
 
+[0.2.1]
+path_notes = "- removed illegal names (_T etc)
+"
+date = "2023/7"
+
