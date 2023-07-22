@@ -43,11 +43,11 @@ struct ScriptVariable {
         // defined for ScriptValue pointers.
         // The user can define other `from` functions inside the
         // `carescript` namespace to effectivly overload the
-        // constructor of this class, enabling syntax suggar for user defined types
+        // constructor of this class, enabling syntax sugar for user defined types
         from(*this,a);
     }
 
-    inline  ScriptVariable& operator=(const ScriptVariable& var) noexcept {
+    inline ScriptVariable& operator=(const ScriptVariable& var) noexcept {
         if(var.value.get() != nullptr) value.reset(var.value->copy());
         return *this;
     }
@@ -74,7 +74,7 @@ struct ScriptVariable {
 
 // checks if a variable has a specific type
 template<ScriptValueType Tval>
-inline bool is_typeof(const carescript::ScriptVariable& var) noexcept {
+inline static bool is_typeof(const carescript::ScriptVariable& var) noexcept {
     Tval inst;
     return var.get_type() == inst.get_type();
 }
@@ -154,7 +154,7 @@ struct ScriptSettings {
 
 // storage class for an operator
 struct ScriptOperator {
-    // higher priority -> the later it gets executed
+    // higher priority -> the later it gets evaluated
     int priority = 0;
     // UNKNOWN -> internally used, no no, don't touch it!
     enum {UNARY, BINARY, UNKNOWN} type;
@@ -172,7 +172,7 @@ using ScriptTypeCheck = ScriptValue*(*)(KittenToken src, ScriptSettings& setting
 
 // storage class for a builtin function
 struct ScriptBuiltin {
-    // <0 disables this check
+    // < 0 disables this check
     int arg_count = -1;
     // return `script_null` for no return value
     ScriptVariable(*exec)(const ScriptArglist&,ScriptSettings&);
@@ -668,7 +668,7 @@ using PreProcList = std::unordered_map<std::string,ScriptPreProcess>;
 
 // abstract class to provide an interface for extensions
 class Extension {
-    Interpreter* interp_link;
+    Interpreter* interp_link = nullptr;
 public:
     virtual const char* id() const noexcept { return "anon"; }
     
@@ -689,8 +689,8 @@ public:
 };
 
 struct ExtensionData {
-    size_t hash;
-    Extension* extension;
+    size_t hash = 0;
+    Extension* extension = nullptr;
 
     template<typename T> requires std::is_base_of_v<Extension,T>
     ExtensionData(T* ext) {
@@ -736,11 +736,11 @@ using get_extension_fun = ExtensionData(*)();
 // external overloads for the ScriptVariable constructor
 
 template<typename Tp> requires std::is_arithmetic_v<Tp>
-inline void from(carescript::ScriptVariable& var, const Tp& integral) noexcept {
+inline static void from(carescript::ScriptVariable& var, const Tp& integral) noexcept {
     var = new carescript::ScriptNumberValue(integral);
 }
 
-inline void from(carescript::ScriptVariable& var, const std::string& string) noexcept{
+inline static void from(carescript::ScriptVariable& var, const std::string& string) noexcept{
     var = new carescript::ScriptStringValue(string);
 }
 
