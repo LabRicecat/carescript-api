@@ -1,3 +1,6 @@
+# !! MOVED TO CODEBERG.ORG !!
+**This is an old version, please visit the current version at [codeberg.org](https://codeberg.org/LabRicecat/carescript-api)!**
+
 # carescript-api
 A simple API for a highly dynamic DSL
 
